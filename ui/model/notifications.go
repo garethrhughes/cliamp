@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"cliamp/luaplugin"
-	"cliamp/mpris"
+	"cliamp/mediactl"
 	"cliamp/playlist"
 	"cliamp/provider"
 )
 
-// notifyAll sends the current playback state to both MPRIS and Lua plugins.
+// notifyAll sends the current playback state to media controllers and Lua plugins.
 func (m *Model) notifyAll() {
-	m.notifyMPRIS()
+	m.notifyMediaControllers()
 	m.notifyPlugins()
 }
 
@@ -35,7 +35,7 @@ func (m *Model) notifyPlugins() {
 	data["status"] = status
 	data["title"] = title
 	data["artist"] = artist
-	data["position"] = m.player.Position().Seconds()
+	data["position"] = m.cachedPos.Seconds()
 	m.luaMgr.Emit(luaplugin.EventPlaybackState, data)
 }
 
@@ -67,10 +67,10 @@ func trackToMap(track playlist.Track) map[string]any {
 	}
 }
 
-// notifyMPRIS sends the current playback state to the MPRIS service
-// so desktop widgets and playerctl stay in sync.
-func (m *Model) notifyMPRIS() {
-	if m.mpris == nil {
+// notifyMediaControllers sends the current playback state to all registered
+// media controllers (MPRIS, macOS media keys, etc.).
+func (m *Model) notifyMediaControllers() {
+	if len(m.mediaControllers) == 0 {
 		return
 	}
 	status := "Stopped"
@@ -83,17 +83,29 @@ func (m *Model) notifyMPRIS() {
 	}
 	track, _ := m.playlist.Current()
 	artist, title := m.resolveTrackDisplay(track)
-	info := mpris.TrackInfo{
+	info := mediactl.TrackInfo{
 		Title:       title,
 		Artist:      artist,
 		Album:       track.Album,
 		Genre:       track.Genre,
 		TrackNumber: track.TrackNumber,
 		URL:         track.Path,
-		Length:      m.player.Duration().Microseconds(),
+		LengthUs:    m.cachedDur.Microseconds(),
 	}
-	m.mpris.Update(status, info, m.player.Volume(),
-		m.player.Position().Microseconds(), m.player.Seekable())
+	posUs := m.cachedPos.Microseconds()
+	vol := m.player.Volume()
+	seekable := m.player.Seekable()
+	for _, c := range m.mediaControllers {
+		c.Update(status, info, vol, posUs, seekable)
+	}
+}
+
+// emitSeeked notifies all media controllers that a seek just occurred.
+func (m *Model) emitSeeked() {
+	pos := m.player.Position().Microseconds()
+	for _, c := range m.mediaControllers {
+		c.EmitSeeked(pos)
+	}
 }
 
 // nowPlaying fires a now-playing notification for the given track if configured.

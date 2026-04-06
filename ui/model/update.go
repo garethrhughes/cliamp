@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"cliamp/ipc"
+	"cliamp/mediactl"
 	"cliamp/mpris"
 	"cliamp/player"
 	"cliamp/playlist"
@@ -83,9 +84,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Grace period: suppress reconnect for a few ticks after seek completes.
 		m.seek.grace = 10
 		m.seek.graceFor = 0
-		if m.mpris != nil {
-			m.mpris.EmitSeeked(m.player.Position().Microseconds())
-		}
+		m.emitSeeked()
 		return m, nil
 
 	case tickMsg:
@@ -618,8 +617,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.devicePicker.devices = nil
 		return m, nil
 
-	case mpris.InitMsg:
-		m.mpris = msg.Svc
+	case mediactl.InitMsg:
+		m.mediaControllers = msg.Controllers
 		m.notifyAll()
 		return m, nil
 
@@ -644,18 +643,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		offset := time.Duration(msg.Offset) * time.Microsecond
 		m.player.Seek(offset)
 		m.notifyAll()
-		if m.mpris != nil {
-			m.mpris.EmitSeeked(m.player.Position().Microseconds())
-		}
+		m.emitSeeked()
 		return m, nil
 
 	case mpris.SetPositionMsg:
 		pos := time.Duration(msg.Position) * time.Microsecond
 		m.player.Seek(pos - m.player.Position())
 		m.notifyAll()
-		if m.mpris != nil {
-			m.mpris.EmitSeeked(m.player.Position().Microseconds())
-		}
+		m.emitSeeked()
 		return m, nil
 
 	case mpris.SetVolumeMsg:

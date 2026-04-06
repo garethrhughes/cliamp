@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"cliamp/luaplugin"
-	"cliamp/mpris"
+	"cliamp/mediactl"
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/theme"
@@ -227,8 +227,8 @@ type Model struct {
 	// Live stream title from ICY metadata (e.g., "Artist - Song")
 	streamTitle string
 
-	// MPRIS D-Bus service (nil on non-Linux or if D-Bus unavailable)
-	mpris *mpris.Service
+	// Platform media controllers (MPRIS on Linux, media keys on macOS, etc.)
+	mediaControllers []mediactl.Controller
 
 	// Lua plugin manager (nil if no plugins loaded)
 	luaMgr *luaplugin.Manager

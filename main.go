@@ -18,16 +18,20 @@ import (
 	"cliamp/external/spotify"
 	"cliamp/external/ytmusic"
 	"cliamp/internal/appmeta"
+	"cliamp/internal/control"
 	"cliamp/internal/resume"
 	"cliamp/ipc"
 	"cliamp/luaplugin"
-	"cliamp/mpris"
+	"cliamp/mediactl"
 	"cliamp/player"
 	"cliamp/playlist"
 	"cliamp/resolve"
 	"cliamp/theme"
 	"cliamp/ui"
 	"cliamp/ui/model"
+
+	// Media controller registrations (self-register via init).
+	_ "cliamp/mpris"
 )
 
 // version is set at build time via -ldflags "-X main.version=vX.Y.Z".
@@ -293,14 +297,17 @@ func run(overrides config.Overrides, positional []string) error {
 			SetEQPreset: func(name string, bands *[10]float64) {
 				prog.Send(model.SetEQPresetMsg{Name: name, Bands: bands})
 			},
-			Next: func() { prog.Send(mpris.NextMsg{}) },
-			Prev: func() { prog.Send(mpris.PrevMsg{}) },
+			Next: func() { prog.Send(control.NextMsg{}) },
+			Prev: func() { prog.Send(control.PrevMsg{}) },
 		})
 	}
 
-	if svc, err := mpris.New(func(msg interface{}) { prog.Send(msg) }); err == nil && svc != nil {
-		defer svc.Close()
-		go prog.Send(mpris.InitMsg{Svc: svc})
+	controllers := mediactl.InitAll(func(msg interface{}) { prog.Send(msg) })
+	for _, c := range controllers {
+		defer c.Close()
+	}
+	if len(controllers) > 0 {
+		go prog.Send(mediactl.InitMsg{Controllers: controllers})
 	}
 
 	ipcSrv, ipcErr := ipc.NewServer(ipc.DefaultSocketPath(), ipc.DispatcherFunc(func(msg interface{}) { prog.Send(msg) }))
@@ -310,12 +317,27 @@ func run(overrides config.Overrides, positional []string) error {
 		defer ipcSrv.Close()
 	}
 
-	finalModel, err := prog.Run()
-	if err != nil {
-		return err
+	// Run the TUI in a goroutine so the main thread is available for
+	// platform media controllers that need it (macOS NSRunLoop).
+	type runResult struct {
+		model tea.Model
+		err   error
+	}
+	done := make(chan struct{})
+	resCh := make(chan runResult, 1)
+	go func() {
+		m, err := prog.Run()
+		resCh <- runResult{model: m, err: err}
+		close(done)
+	}()
+	mediactl.RunMainLoop(controllers, done)
+
+	res := <-resCh
+	if res.err != nil {
+		return res.err
 	}
 
-	if fm, ok := finalModel.(model.Model); ok {
+	if fm, ok := res.model.(model.Model); ok {
 		themeName := fm.ThemeName()
 		if themeName == theme.DefaultName {
 			themeName = ""

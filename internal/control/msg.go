@@ -13,3 +13,6 @@ type PrevMsg struct{}
 
 // StopMsg requests playback to stop.
 type StopMsg struct{}
+
+// SetPositionMsg requests seeking to an absolute position (microseconds).
+type SetPositionMsg struct{ Position int64 }

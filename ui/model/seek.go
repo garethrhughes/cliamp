@@ -32,9 +32,7 @@ func (m *Model) doSeek(d time.Duration) tea.Cmd {
 	if !m.player.IsYTDLSeek() {
 		// Local file seek: immediate.
 		m.player.Seek(d)
-		if m.mpris != nil {
-			m.mpris.EmitSeeked(m.player.Position().Microseconds())
-		}
+		m.emitSeeked()
 		return nil
 	}
 

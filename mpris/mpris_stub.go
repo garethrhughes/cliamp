@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"cliamp/internal/control"
+	"cliamp/mediactl"
 )
 
 // Shared message types (aliases so existing code using mpris.NextMsg still works).
@@ -22,21 +23,13 @@ type (
 type (
 	QuitMsg        struct{}
 	SeekMsg        struct{ Offset int64 }   // microseconds (relative)
-	SetPositionMsg struct{ Position int64 } // microseconds (absolute)
+	SetPositionMsg = control.SetPositionMsg // microseconds (absolute)
 	SetVolumeMsg   struct{ Volume float64 } // linear 0.0–1.0
-	InitMsg        struct{ Svc *Service }
 )
 
-// TrackInfo carries metadata for the currently playing track.
-type TrackInfo struct {
-	Title       string
-	Artist      string
-	Album       string
-	Genre       string
-	TrackNumber int
-	URL         string
-	Length      int64 // microseconds
-}
+// TrackInfo is an alias for mediactl.TrackInfo so existing code using
+// mpris.TrackInfo continues to compile.
+type TrackInfo = mediactl.TrackInfo
 
 // Service is a no-op stub on non-Linux platforms.
 type Service struct{}

@@ -15,7 +15,14 @@ import (
 	"github.com/godbus/dbus/v5/prop"
 
 	"cliamp/internal/control"
+	"cliamp/mediactl"
 )
+
+func init() {
+	mediactl.Register(func(send func(interface{})) (mediactl.Controller, error) {
+		return New(send)
+	})
+}
 
 // Shared message types (aliases so existing code using mpris.NextMsg still works).
 type (
@@ -29,21 +36,13 @@ type (
 type (
 	QuitMsg        struct{}
 	SeekMsg        struct{ Offset int64 }   // microseconds (relative)
-	SetPositionMsg struct{ Position int64 } // microseconds (absolute)
+	SetPositionMsg = control.SetPositionMsg // microseconds (absolute)
 	SetVolumeMsg   struct{ Volume float64 } // linear 0.0–1.0
-	InitMsg        struct{ Svc *Service }
 )
 
-// TrackInfo carries metadata for the currently playing track.
-type TrackInfo struct {
-	Title       string
-	Artist      string
-	Album       string
-	Genre       string
-	TrackNumber int
-	URL         string
-	Length      int64 // microseconds
-}
+// TrackInfo is an alias for mediactl.TrackInfo so existing code using
+// mpris.TrackInfo continues to compile.
+type TrackInfo = mediactl.TrackInfo
 
 // Service manages the MPRIS2 D-Bus presence.
 type Service struct {
@@ -329,8 +328,8 @@ func makeMetadata(t TrackInfo) map[string]dbus.Variant {
 	if t.URL != "" {
 		m["xesam:url"] = dbus.MakeVariant(t.URL)
 	}
-	if t.Length > 0 {
-		m["mpris:length"] = dbus.MakeVariant(t.Length)
+	if t.LengthUs > 0 {
+		m["mpris:length"] = dbus.MakeVariant(t.LengthUs)
 	}
 	return m
 }
