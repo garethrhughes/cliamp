@@ -110,6 +110,12 @@ func (m *Model) tickInterval() time.Duration {
 	if m.termTitle.introActive {
 		return ui.TickFast
 	}
+	// Fully idle: stopped or paused with nothing self-animating. Drop to the
+	// idle cadence so the CPU can sit in a low P-state between user actions.
+	// Bubbletea still wakes immediately on key / IPC / MPRIS / plugin events.
+	if m.isFullyIdle() {
+		return ui.TickIdle
+	}
 	d := ui.TickSlow
 	if m.vis != nil {
 		d = m.vis.TickInterval(m.visualizerTickContext(time.Time{}))
@@ -123,6 +129,28 @@ func (m *Model) tickInterval() time.Duration {
 		d = ui.TickFast
 	}
 	return d
+}
+
+// isFullyIdle reports whether the model has nothing changing on its own.
+// When true, the tick can run at ui.TickIdle since any state change will
+// arrive as an explicit message (key press, IPC, MPRIS, plugin send).
+func (m *Model) isFullyIdle() bool {
+	if m.player == nil {
+		return false
+	}
+	if m.player.IsPlaying() && !m.player.IsPaused() {
+		return false
+	}
+	if m.isOverlayActive() || m.buffering || m.termTitle.introActive {
+		return false
+	}
+	if !m.status.expiresAt.IsZero() || len(m.logLines) > 0 {
+		return false
+	}
+	if !m.reconnect.at.IsZero() {
+		return false
+	}
+	return true
 }
 
 func (m *Model) tickVisualizer(now time.Time) {

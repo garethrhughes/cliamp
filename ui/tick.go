@@ -9,4 +9,10 @@ const (
 	TickFast    = 50 * time.Millisecond  // 20 FPS — per-frame-animated spectrum modes
 	TickAnalyze = 33 * time.Millisecond  // ~30 Hz — FFT analysis cadence (independent of animation)
 	TickSlow    = 200 * time.Millisecond // 5 FPS — visualizer off or overlay
+	// TickIdle is used when the player is stopped or paused with nothing
+	// animating (no overlay, no buffering, no pending status / reconnect).
+	// Bubbletea wakes immediately on key / IPC / MPRIS / plugin messages, so
+	// the tick at this cadence only services time-based self-changes
+	// (status-message expiry, log-line aging) — those tolerate the latency.
+	TickIdle = 1500 * time.Millisecond // ~0.7 Hz — fully idle, minimal CPU
 )
