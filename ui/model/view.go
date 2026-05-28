@@ -517,7 +517,7 @@ func (m Model) renderProviderPill() string {
 
 func (m Model) renderPlaylistHeader() string {
 	if m.focus == focusProvider {
-		return dimStyle.Render(fmt.Sprintf("── %s Playlists ──", m.provider.Name()))
+		return dimStyle.Render(labeledSeparator("", fmt.Sprintf("%s Playlists", m.provider.Name())))
 	}
 
 	var shuffle string
@@ -660,11 +660,11 @@ func (m Model) renderProviderList() string {
 					var header string
 					switch pfx {
 					case "f":
-						header = "  ── favorites ──"
+						header = labeledSeparator("  ", "Favorites")
 					case "c":
-						header = "  ── catalog ──"
+						header = labeledSeparator("  ", "Catalog")
 					case "s":
-						header = "  ── search results ──"
+						header = labeledSeparator("  ", "Search Results")
 					}
 					if header != "" && len(lines) < visibleBudget {
 						lines = append(lines, dimStyle.Render(header))
@@ -672,7 +672,7 @@ func (m Model) renderProviderList() string {
 					prevPrefix = pfx
 				}
 			} else if hasSections && p.Section != prevSection {
-				header := "  ── " + strings.ToLower(p.Section) + " ──"
+				header := labeledSeparator("  ", p.Section)
 				if len(lines) < visibleBudget {
 					lines = append(lines, dimStyle.Render(header))
 				}
