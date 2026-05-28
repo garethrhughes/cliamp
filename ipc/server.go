@@ -3,6 +3,7 @@ package ipc
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -140,9 +141,16 @@ func (s *Server) acceptLoop() {
 			case <-s.done:
 				return
 			default:
-				time.Sleep(100 * time.Millisecond)
-				continue
 			}
+			// A closed listener is permanent — stop instead of spinning.
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			// Other errors may be transient (e.g. EMFILE); log and back off
+			// rather than silently retrying.
+			applog.Warn("ipc: accept: %v", err)
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 		s.wg.Add(1)
 		go s.handleConn(conn)
