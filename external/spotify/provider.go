@@ -240,7 +240,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 
 	p.mu.Lock()
 	if p.listCache != nil && time.Since(p.listCacheAt) < playlistListCacheTTL {
-		cached := p.listCache
+		cached := slices.Clone(p.listCache)
 		p.mu.Unlock()
 		return cached, nil
 	}
@@ -355,7 +355,7 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	p.listCacheAt = time.Now()
 	p.mu.Unlock()
 
-	return all, nil
+	return slices.Clone(all), nil
 }
 
 // Tracks returns all tracks for the given Spotify playlist ID.
