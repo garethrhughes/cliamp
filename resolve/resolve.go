@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -299,7 +300,9 @@ func resolveFeed(feedURL string) ([]playlist.Track, error) {
 			} `xml:"item"`
 		} `xml:"channel"`
 	}
-	if err := xml.NewDecoder(resp.Body).Decode(&rss); err != nil {
+	// Bound the read so a huge or malicious feed can't exhaust memory.
+	const maxFeedBody = 32 << 20 // 32 MB
+	if err := xml.NewDecoder(io.LimitReader(resp.Body, maxFeedBody)).Decode(&rss); err != nil {
 		return nil, fmt.Errorf("parsing feed: %w", err)
 	}
 
