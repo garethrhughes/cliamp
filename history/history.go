@@ -91,7 +91,12 @@ func (s *Store) Record(track playlist.Track, playedAt time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entries, _ := s.loadLocked()
+	entries, err := s.loadLocked()
+	if err != nil {
+		// Don't clobber existing on-disk history on a transient read failure:
+		// proceeding would rewrite the file with only the new entry.
+		return fmt.Errorf("load history: %w", err)
+	}
 	if n := len(entries); n > 0 {
 		top := entries[0]
 		if top.Track.Path == track.Path && playedAt.Sub(top.PlayedAt) < dedupWindow {
