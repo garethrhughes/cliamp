@@ -1,6 +1,7 @@
 package luaplugin
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,14 +110,28 @@ func registerFSAPI(L *lua.LState, cliamp *lua.LTable) {
 	// cliamp.fs.read(path) -> string (max 1MB)
 	L.SetField(tbl, "read", L.NewFunction(func(L *lua.LState) int {
 		path := L.CheckString(1)
-		data, err := os.ReadFile(path)
+		f, err := os.Open(path)
 		if err != nil {
 			L.Push(lua.LNil)
 			L.Push(lua.LString(err.Error()))
 			return 2
 		}
+		defer f.Close()
 		const maxSize = 1 << 20 // 1MB
-		data = data[:min(len(data), maxSize)]
+		// Read one byte past the cap so an oversized file is detected without
+		// pulling the whole thing into memory, then reject it explicitly
+		// rather than returning a silently truncated value.
+		data, err := io.ReadAll(io.LimitReader(f, maxSize+1))
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+		if len(data) > maxSize {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("file exceeds 1MB read limit"))
+			return 2
+		}
 		L.Push(lua.LString(string(data)))
 		return 1
 	}))
