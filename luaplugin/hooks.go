@@ -90,12 +90,21 @@ func filterOutPlugin(hooks []*luaHook, p *Plugin) []*luaHook {
 // mutex serializes all LState access so concurrent events are safe.
 func (m *Manager) Emit(event string, data map[string]any) {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closing {
+		return
+	}
 	hooks := m.hooks[event]
-	m.mu.RUnlock()
-
 	label := event + " handler"
 	for _, h := range hooks {
-		go m.invokeHookWithData(h, label, data)
+		// Add under RLock so Close (which sets closing under Lock, then Wait)
+		// can never miss an in-flight goroutine: either we register it before
+		// closing is set, or we observe closing and skip.
+		m.wg.Add(1)
+		go func(h *luaHook) {
+			defer m.wg.Done()
+			m.invokeHookWithData(h, label, data)
+		}(h)
 	}
 }
 

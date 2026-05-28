@@ -93,6 +93,8 @@ type Manager struct {
 	execs        *execManager
 	logger       *pluginLogger
 	mu           sync.RWMutex
+	closing      bool           // set under mu.Lock during Close; blocks new async dispatch
+	wg           sync.WaitGroup // tracks in-flight async Emit goroutines
 }
 
 // New scans the plugin directory and loads all .lua files.
@@ -422,9 +424,17 @@ func (m *Manager) SetUIProvider(up UIProvider) {
 
 // Close fires the "app.quit" event synchronously and shuts down all Lua VMs.
 func (m *Manager) Close() {
+	// Block new async dispatch before tearing anything down.
+	m.mu.Lock()
+	m.closing = true
+	m.mu.Unlock()
+
 	m.EmitSync(EventAppQuit, nil)
 	m.timers.stopAll()
 	m.execs.stopAll()
+	// Wait for any in-flight async hook goroutines to finish before closing
+	// the LStates they call into.
+	m.wg.Wait()
 	if m.logger != nil {
 		m.logger.close()
 	}
