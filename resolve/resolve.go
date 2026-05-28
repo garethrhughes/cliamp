@@ -623,6 +623,11 @@ func parseItunesDuration(s string) int {
 }
 
 // humanizeBasename converts a URL basename like "clr-podcast-467" into "clr podcast 467".
+// A trailing known audio extension (e.g. "track.mp3") is dropped so it doesn't
+// leak into the title; non-media suffixes (e.g. "3.5-remix") are left intact.
 func humanizeBasename(s string) string {
+	if ext := filepath.Ext(s); ext != "" && player.SupportedExts[strings.ToLower(ext)] {
+		s = strings.TrimSuffix(s, ext)
+	}
 	return strings.ReplaceAll(s, "-", " ")
 }
