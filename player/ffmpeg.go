@@ -2,7 +2,9 @@ package player
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -83,6 +85,12 @@ func decodeFFmpeg(path string, sr beep.SampleRate, bitDepth int) (beep.StreamSee
 
 	out, err := cmd.Output()
 	if err != nil {
+		// cmd.Output captures stderr into ExitError.Stderr; surface it since
+		// ffmpeg writes the actual failure reason there (-loglevel error).
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+			return nil, beep.Format{}, fmt.Errorf("ffmpeg decode: %w: %s", err, bytes.TrimSpace(ee.Stderr))
+		}
 		return nil, beep.Format{}, fmt.Errorf("ffmpeg decode: %w", err)
 	}
 
