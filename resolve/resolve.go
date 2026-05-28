@@ -52,6 +52,15 @@ var httpClient = &http.Client{
 	Transport: &uaTransport{rt: http.DefaultTransport},
 }
 
+// sniffClient probes content types during Args classification, which runs on
+// the startup path before the TUI launches. It uses a short timeout so a slow
+// or unresponsive server can stall startup by at most a few seconds rather
+// than the 30s the feed/M3U client allows.
+var sniffClient = &http.Client{
+	Timeout:   5 * time.Second,
+	Transport: &uaTransport{rt: http.DefaultTransport},
+}
+
 // uaTransport injects the cliamp User-Agent header into every request.
 type uaTransport struct{ rt http.RoundTripper }
 
@@ -190,7 +199,7 @@ func sniffFeedURL(rawURL string) bool {
 		}
 	}
 
-	resp, err := httpClient.Head(rawURL)
+	resp, err := sniffClient.Head(rawURL)
 	if err != nil {
 		return false
 	}
