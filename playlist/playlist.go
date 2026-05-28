@@ -712,7 +712,7 @@ func (p *Playlist) RemoveQueueAt(pos int) {
 	}
 }
 
-// MoveQueue swaps two adjacent entries in the play-next queue by position.
+// MoveQueue swaps the two entries at the given positions in the play-next queue.
 func (p *Playlist) MoveQueue(from, to int) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
