@@ -29,6 +29,8 @@ type Service struct {
 	lastTrack   playback.Track
 	lastVol     float64
 	lastCanSeek bool
+	trackSeq    int64           // bumped on each track change
+	trackID     dbus.ObjectPath // current track's MPRIS object path
 }
 
 const introspectXML = `
@@ -115,6 +117,14 @@ func (p playerIface) DoSeek(offset int64) *dbus.Error {
 }
 
 func (p playerIface) SetPosition(trackID dbus.ObjectPath, position int64) *dbus.Error {
+	// Ignore a seek aimed at a track that is no longer current (the MPRIS
+	// spec treats a mismatched TrackId as stale).
+	p.svc.mu.Lock()
+	cur := p.svc.trackID
+	p.svc.mu.Unlock()
+	if trackID != cur {
+		return nil
+	}
 	p.svc.send(playback.SetPositionMsg{Position: time.Duration(position) * time.Microsecond})
 	return nil
 }
@@ -136,7 +146,7 @@ func New(send func(tea.Msg)) (*Service, error) {
 		return nil, fmt.Errorf("mpris: name already taken")
 	}
 
-	svc := &Service{conn: conn, send: send}
+	svc := &Service{conn: conn, send: send, trackSeq: 1, trackID: trackPath(1)}
 	path := dbus.ObjectPath("/org/mpris/MediaPlayer2")
 
 	if err := conn.Export(root{svc}, path, "org.mpris.MediaPlayer2"); err != nil {
@@ -166,7 +176,7 @@ func New(send func(tea.Msg)) (*Service, error) {
 		},
 		"org.mpris.MediaPlayer2.Player": {
 			"PlaybackStatus": {Value: string(playback.StatusStopped), Writable: false, Emit: prop.EmitTrue},
-			"Metadata":       {Value: makeMetadata(playback.Track{}), Writable: false, Emit: prop.EmitTrue},
+			"Metadata":       {Value: makeMetadata(playback.Track{}, svc.trackID), Writable: false, Emit: prop.EmitTrue},
 			"Volume": {Value: 1.0, Writable: true, Emit: prop.EmitTrue, Callback: func(c *prop.Change) *dbus.Error {
 				v, ok := c.Value.(float64)
 				if !ok {
@@ -225,7 +235,9 @@ func (s *Service) Update(state playback.State) {
 	}
 
 	if state.Track != s.lastTrack {
-		s.props.SetMust(iface, "Metadata", makeMetadata(state.Track))
+		s.trackSeq++
+		s.trackID = trackPath(s.trackSeq)
+		s.props.SetMust(iface, "Metadata", makeMetadata(state.Track, s.trackID))
 		s.lastTrack = state.Track
 	}
 
