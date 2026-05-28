@@ -31,6 +31,39 @@ type Server struct {
 	plugins  PluginDispatcher
 	done     chan struct{}
 	wg       sync.WaitGroup
+
+	connMu sync.Mutex
+	conns  map[net.Conn]struct{} // live connections, closed on shutdown
+}
+
+// addConn registers a live connection. It returns false if the server is
+// already shutting down, in which case the caller must close the connection
+// and return. The done check shares connMu with closeConns so a connection
+// accepted during shutdown is always closed by exactly one of them.
+func (s *Server) addConn(c net.Conn) bool {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	select {
+	case <-s.done:
+		return false
+	default:
+	}
+	s.conns[c] = struct{}{}
+	return true
+}
+
+func (s *Server) removeConn(c net.Conn) {
+	s.connMu.Lock()
+	delete(s.conns, c)
+	s.connMu.Unlock()
+}
+
+func (s *Server) closeConns() {
+	s.connMu.Lock()
+	for c := range s.conns {
+		c.Close()
+	}
+	s.connMu.Unlock()
 }
 
 // SetPluginDispatcher wires in the Lua plugin manager after the server starts.
@@ -76,6 +109,7 @@ func NewServer(sockPath string, disp Dispatcher) (*Server, error) {
 		sockPath: sockPath,
 		disp:     disp,
 		done:     make(chan struct{}),
+		conns:    make(map[net.Conn]struct{}),
 	}
 
 	s.wg.Add(1)
@@ -87,6 +121,9 @@ func NewServer(sockPath string, disp Dispatcher) (*Server, error) {
 func (s *Server) Close() error {
 	close(s.done)
 	err := s.listener.Close()
+	// Close in-flight connections so their handleConn read loops unblock
+	// immediately rather than waiting out the per-request read deadline.
+	s.closeConns()
 	s.wg.Wait()
 	os.Remove(s.sockPath)
 	os.Remove(s.sockPath + ".pid")
@@ -117,6 +154,11 @@ func (s *Server) acceptLoop() {
 func (s *Server) handleConn(conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
+
+	if !s.addConn(conn) {
+		return // server shutting down
+	}
+	defer s.removeConn(conn)
 
 	scanner := bufio.NewScanner(conn)
 
