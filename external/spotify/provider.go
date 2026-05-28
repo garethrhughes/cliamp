@@ -273,14 +273,12 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 	// i.e. 'Liked Songs' or 'Lieblingssongs' etc.
 	// For the moment, "Your Music" must sufficice without adding a localization
 	// map.
-	p.mu.Lock()
 	all = append(all, playlist.PlaylistInfo{
 		ID:         "YOUR MUSIC",
 		Name:       "Your Music",
 		TrackCount: result.Total,
 		Section:    "Library",
 	})
-	p.mu.Unlock()
 
 	for {
 		query := url.Values{
