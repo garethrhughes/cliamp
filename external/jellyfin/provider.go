@@ -51,7 +51,7 @@ func (p *Provider) Refresh() {
 	p.playlistCache = nil
 	p.trackCache = nil
 	p.mu.Unlock()
-	p.client.clearCache()
+	p.client.ClearCache()
 }
 
 func (p *Provider) Artists() ([]provider.ArtistInfo, error) {
