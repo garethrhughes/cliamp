@@ -34,6 +34,17 @@ type luaHook struct {
 	fn     *lua.LFunction
 }
 
+// callBounded runs fn on the plugin's LState under hookTimeout so a runaway
+// callback cannot hold the plugin mutex forever. The caller must already hold
+// p.mu. Results (if nret > 0) are left on the stack for the caller to read.
+func (p *Plugin) callBounded(nret int, fn *lua.LFunction, args ...lua.LValue) error {
+	ctx, cancel := context.WithTimeout(context.Background(), hookTimeout)
+	defer cancel()
+	p.L.SetContext(ctx)
+	defer p.L.RemoveContext()
+	return p.L.CallByParam(lua.P{Fn: fn, NRet: nret, Protect: true}, args...)
+}
+
 // invokeHook calls a plugin's Lua callback under the plugin's mutex with a
 // bounded context. Logs any error to the plugin log. Used by every dispatch
 // site that fires Lua from Go (events, key binds, command handlers).
