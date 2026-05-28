@@ -352,6 +352,16 @@ func (m Model) albumSeparator(album string, year int) string {
 	return dimStyle.Render(labeledSeparator("", label))
 }
 
+// navFilteredTotal returns the count to show in a nav list footer: the number
+// of filter matches when a search filter is active (whether the input bar is
+// open or the query was committed with Enter), otherwise the full count.
+func (m Model) navFilteredTotal(full int) int {
+	if len(m.navBrowser.searchIdx) > 0 || m.navBrowser.search != "" {
+		return len(m.navBrowser.searchIdx)
+	}
+	return full
+}
+
 // navScrollItems renders a filtered or unfiltered scrolled list for nav browsers.
 func (m Model) navScrollItems(total int, labelFn func(int) string) []string {
 	maxVisible := max(m.plVisible, 5)

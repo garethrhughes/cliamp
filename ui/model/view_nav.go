@@ -85,14 +85,12 @@ func (m Model) renderNavArtistList() []string {
 	})
 	lines = append(lines, items...)
 
-	rendered := min(len(m.navBrowser.artists)-m.navBrowser.scroll, max(m.plVisible, 5))
+	total := m.navFilteredTotal(len(m.navBrowser.artists))
+	rendered := min(total-m.navBrowser.scroll, max(m.plVisible, 5))
 	if rendered < 0 {
 		rendered = 0
 	}
-	footerCount := fmt.Sprintf("%d/%d", rendered, len(m.navBrowser.artists))
-	if m.navBrowser.searching && m.navBrowser.search != "" {
-		footerCount = fmt.Sprintf("%d/%d", len(m.navBrowser.artists), len(m.navBrowser.artists))
-	}
+	footerCount := fmt.Sprintf("%d/%d", rendered, total)
 	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %s artists", footerCount)),
 		"", helpKey("←↓↑→", "Navigate ")+helpKey("Enter", "Open ")+helpKey("/", "Search"))
 
@@ -150,14 +148,12 @@ func (m Model) renderNavAlbumList(artistAlbums bool) []string {
 	if m.navBrowser.albumLoading {
 		lines = append(lines, loadingLine("Loading more…"))
 	} else {
-		rendered := min(len(m.navBrowser.albums)-m.navBrowser.scroll, max(m.plVisible, 5))
+		total := m.navFilteredTotal(len(m.navBrowser.albums))
+		rendered := min(total-m.navBrowser.scroll, max(m.plVisible, 5))
 		if rendered < 0 {
 			rendered = 0
 		}
-		footerCount := fmt.Sprintf("%d/%d", rendered, len(m.navBrowser.albums))
-		if m.navBrowser.searching && m.navBrowser.search != "" {
-			footerCount = fmt.Sprintf("%d/%d", len(m.navBrowser.albums), len(m.navBrowser.albums))
-		}
+		footerCount := fmt.Sprintf("%d/%d", rendered, total)
 		lines = append(lines, dimStyle.Render(fmt.Sprintf("  %s albums", footerCount)))
 	}
 
@@ -240,10 +236,7 @@ func (m Model) renderNavTrackList() []string {
 		lines = padLines(lines, maxVisible, rendered)
 	}
 
-	footerCount := fmt.Sprintf("%d/%d", rendered, len(m.navBrowser.tracks))
-	if m.navBrowser.searching && m.navBrowser.search != "" {
-		footerCount = fmt.Sprintf("%d/%d", len(m.navBrowser.tracks), len(m.navBrowser.tracks))
-	}
+	footerCount := fmt.Sprintf("%d/%d", rendered, m.navFilteredTotal(len(m.navBrowser.tracks)))
 	lines = append(lines, "", dimStyle.Render(fmt.Sprintf("  %s tracks", footerCount)),
 		"", helpKey("←↓↑→", "Navigate ")+
 			helpKey("Enter", "Play from here ")+
