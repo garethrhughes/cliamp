@@ -224,9 +224,6 @@ cliamp.player.mono()          --> boolean
 cliamp.player.repeat_mode()   --> "Off" | "All" | "One"
 cliamp.player.shuffle()       --> boolean
 cliamp.player.eq_bands()      --> table of 10 dB values
-cliamp.player.eq_preset()     --> string
-cliamp.player.visualizer()    --> string
-cliamp.player.theme()         --> string
 ```
 
 ### cliamp.track (read-only)
