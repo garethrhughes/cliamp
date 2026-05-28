@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cliamp/internal/appmeta"
@@ -25,13 +26,24 @@ const maxResponseBody = 10 << 20
 
 // Client speaks to a Jellyfin server over its HTTP API.
 type Client struct {
-	baseURL    string
+	baseURL  string
+	user     string
+	password string
+	deviceID string
+
+	// mu guards the lazily-populated fields below, which are read and written
+	// from concurrent tea.Cmd goroutines. It is never held across network I/O.
+	mu         sync.Mutex
 	token      string
 	userID     string
-	user       string
-	password   string
-	deviceID   string
 	albumCache []Album // cached after first Albums() call
+}
+
+// authToken returns the current bearer token under the mutex.
+func (c *Client) authToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.token
 }
 
 // NewClient returns a Client for the given server URL and API token.
@@ -146,14 +158,20 @@ func (c *Client) Ping() error {
 
 // UserID returns the active user id, discovering it lazily when needed.
 func (c *Client) UserID() (string, error) {
-	if c.userID != "" {
-		return c.userID, nil
+	c.mu.Lock()
+	id := c.userID
+	c.mu.Unlock()
+	if id != "" {
+		return id, nil
 	}
 	if err := c.ensureAuth(); err != nil {
 		return "", err
 	}
-	if c.userID != "" {
-		return c.userID, nil
+	c.mu.Lock()
+	id = c.userID
+	c.mu.Unlock()
+	if id != "" {
+		return id, nil
 	}
 
 	var u userDTO
@@ -163,8 +181,10 @@ func (c *Client) UserID() (string, error) {
 	if u.ID == "" {
 		return "", fmt.Errorf("jellyfin: current user response missing id")
 	}
+	c.mu.Lock()
 	c.userID = u.ID
-	return c.userID, nil
+	c.mu.Unlock()
+	return u.ID, nil
 }
 
 // MusicLibraries returns all user views whose collection type is music.
@@ -191,8 +211,11 @@ func (c *Client) MusicLibraries() ([]Library, error) {
 // Albums returns all albums across every Jellyfin music library.
 // Results are cached after the first successful call.
 func (c *Client) Albums() ([]Album, error) {
-	if c.albumCache != nil {
-		return c.albumCache, nil
+	c.mu.Lock()
+	cached := c.albumCache
+	c.mu.Unlock()
+	if cached != nil {
+		return cached, nil
 	}
 
 	libs, err := c.MusicLibraries()
@@ -208,7 +231,9 @@ func (c *Client) Albums() ([]Album, error) {
 		}
 		out = append(out, albums...)
 	}
+	c.mu.Lock()
 	c.albumCache = out
+	c.mu.Unlock()
 	return out, nil
 }
 
@@ -422,7 +447,7 @@ func IsStreamURL(path string) bool {
 func (c *Client) StreamURL(itemID string) string {
 	_ = c.ensureAuth()
 	v := url.Values{
-		"api_key": {c.token},
+		"api_key": {c.authToken()},
 	}
 
 	// Use the direct item download route rather than the Audio controller.
@@ -528,7 +553,10 @@ func (c *Client) postJSON(p string, payload any) error {
 }
 
 func (c *Client) ensureAuth() error {
-	if c.token != "" {
+	c.mu.Lock()
+	have := c.token != ""
+	c.mu.Unlock()
+	if have {
 		return nil
 	}
 	if c.user == "" || c.password == "" {
@@ -575,10 +603,12 @@ func (c *Client) ensureAuth() error {
 	if out.AccessToken == "" {
 		return fmt.Errorf("jellyfin: auth: missing access token")
 	}
+	c.mu.Lock()
 	c.token = out.AccessToken
 	if c.userID == "" {
 		c.userID = out.User.ID
 	}
+	c.mu.Unlock()
 	return nil
 }
 
@@ -597,8 +627,8 @@ func (c *Client) newRequestWithBody(method, p string, params url.Values, body io
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("X-Emby-Token", c.token)
+	if token := c.authToken(); token != "" {
+		req.Header.Set("X-Emby-Token", token)
 	}
 	req.Header.Set("X-Emby-Authorization",
 		fmt.Sprintf(`MediaBrowser Client="%s", Device="%s", DeviceId="%s", Version="%s"`,

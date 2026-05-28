@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cliamp/internal/appmeta"
@@ -25,13 +26,24 @@ const maxResponseBody = 10 << 20
 
 // Client speaks to an Emby server over its HTTP API.
 type Client struct {
-	baseURL    string
+	baseURL  string
+	user     string
+	password string
+	deviceID string
+
+	// mu guards the lazily-populated fields below, which are read and written
+	// from concurrent tea.Cmd goroutines. It is never held across network I/O.
+	mu         sync.Mutex
 	token      string
 	userID     string
-	user       string
-	password   string
-	deviceID   string
 	albumCache []Album // cached after first Albums() call
+}
+
+// authToken returns the current bearer token under the mutex.
+func (c *Client) authToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.token
 }
 
 // NewClient returns a Client for the given server URL and API token.
@@ -157,21 +169,27 @@ func (c *Client) Ping() error {
 // the first user whose name matches the configured user, or the first
 // admin user when no name was configured.
 func (c *Client) UserID() (string, error) {
-	if c.userID != "" {
-		return c.userID, nil
+	c.mu.Lock()
+	id := c.userID
+	c.mu.Unlock()
+	if id != "" {
+		return id, nil
 	}
 	if err := c.ensureAuth(); err != nil {
 		return "", err
 	}
-	if c.userID != "" {
-		return c.userID, nil
+	c.mu.Lock()
+	id = c.userID
+	c.mu.Unlock()
+	if id != "" {
+		return id, nil
 	}
 
 	// Try /Users/Me first (works for session tokens from password auth).
 	var me userDTO
 	if err := c.get("/Users/Me", nil, &me); err == nil && me.ID != "" {
-		c.userID = me.ID
-		return c.userID, nil
+		c.setUserID(me.ID)
+		return me.ID, nil
 	}
 
 	// Fall back to /Users for API key auth (server-level key has no "me").
@@ -182,18 +200,24 @@ func (c *Client) UserID() (string, error) {
 	// Prefer user matching the configured username; otherwise take first entry.
 	for _, u := range users {
 		if strings.EqualFold(u.Name, c.user) {
-			c.userID = u.ID
-			return c.userID, nil
+			c.setUserID(u.ID)
+			return u.ID, nil
 		}
 	}
 	if c.user != "" {
 		return "", fmt.Errorf("emby: user %q not found — check the user name in config", c.user)
 	}
 	if len(users) > 0 && users[0].ID != "" {
-		c.userID = users[0].ID
-		return c.userID, nil
+		c.setUserID(users[0].ID)
+		return users[0].ID, nil
 	}
 	return "", fmt.Errorf("emby: could not discover user id — set user_id in config")
+}
+
+func (c *Client) setUserID(id string) {
+	c.mu.Lock()
+	c.userID = id
+	c.mu.Unlock()
 }
 
 // MusicLibraries returns all user views whose collection type is music.
@@ -220,8 +244,11 @@ func (c *Client) MusicLibraries() ([]Library, error) {
 // Albums returns all albums across every Emby music library.
 // Results are cached after the first successful call.
 func (c *Client) Albums() ([]Album, error) {
-	if c.albumCache != nil {
-		return c.albumCache, nil
+	c.mu.Lock()
+	cached := c.albumCache
+	c.mu.Unlock()
+	if cached != nil {
+		return cached, nil
 	}
 
 	libs, err := c.MusicLibraries()
@@ -237,7 +264,9 @@ func (c *Client) Albums() ([]Album, error) {
 		}
 		out = append(out, albums...)
 	}
+	c.mu.Lock()
 	c.albumCache = out
+	c.mu.Unlock()
 	return out, nil
 }
 
@@ -454,7 +483,7 @@ func IsStreamURL(path string) bool {
 func (c *Client) StreamURL(itemID string) string {
 	_ = c.ensureAuth()
 	v := url.Values{
-		"api_key": {c.token},
+		"api_key": {c.authToken()},
 	}
 	u := c.baseURL + path.Join("/", "Items", itemID, "Download")
 	if enc := v.Encode(); enc != "" {
@@ -555,7 +584,10 @@ func (c *Client) postJSON(p string, payload any) error {
 }
 
 func (c *Client) ensureAuth() error {
-	if c.token != "" {
+	c.mu.Lock()
+	have := c.token != ""
+	c.mu.Unlock()
+	if have {
 		return nil
 	}
 	if c.user == "" || c.password == "" {
@@ -600,10 +632,12 @@ func (c *Client) ensureAuth() error {
 	if out.AccessToken == "" {
 		return fmt.Errorf("emby: auth: missing access token")
 	}
+	c.mu.Lock()
 	c.token = out.AccessToken
 	if c.userID == "" {
 		c.userID = out.User.ID
 	}
+	c.mu.Unlock()
 	return nil
 }
 
@@ -622,9 +656,12 @@ func (c *Client) newRequestWithBody(method, p string, params url.Values, body io
 		return nil, fmt.Errorf("emby: %s: %w", p, err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("X-Emby-Token", c.token)
-		req.Header.Set("Authorization", c.authHeader())
+	c.mu.Lock()
+	token, userID := c.token, c.userID
+	c.mu.Unlock()
+	if token != "" {
+		req.Header.Set("X-Emby-Token", token)
+		req.Header.Set("Authorization", c.authHeader(userID, token))
 	} else {
 		req.Header.Set("Authorization", c.unauthHeader())
 	}
@@ -640,13 +677,13 @@ func (c *Client) unauthHeader() string {
 
 // authHeader returns the Emby Authorization header value for authenticated
 // requests, including the token and user id when available.
-func (c *Client) authHeader() string {
-	if c.userID != "" {
+func (c *Client) authHeader(userID, token string) string {
+	if userID != "" {
 		return fmt.Sprintf(`Emby UserId="%s", Client="%s", Device="%s", DeviceId="%s", Version="%s", Token="%s"`,
-			c.userID, appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version(), c.token)
+			userID, appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version(), token)
 	}
 	return fmt.Sprintf(`Emby Client="%s", Device="%s", DeviceId="%s", Version="%s", Token="%s"`,
-		appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version(), c.token)
+		appmeta.ClientName(), appmeta.DeviceName(), c.deviceID, appmeta.Version(), token)
 }
 
 func albumFromItem(it itemDTO) Album {
