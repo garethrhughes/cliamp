@@ -612,6 +612,11 @@ func (p *SpotifyProvider) webAPIWithBody(ctx context.Context, method, path strin
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
+			// On the last attempt there's no retry after the wait, so don't
+			// sleep (up to 128s) just to give up; fail now.
+			if attempt == maxRetries-1 {
+				break
+			}
 			wait := time.Duration(1<<uint(attempt)) * time.Second
 			if ra := resp.Header.Get("Retry-After"); ra != "" {
 				if secs, err := strconv.Atoi(ra); err == nil && secs > 0 {
