@@ -363,7 +363,9 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	}
 
 	svc, svcErr := wireMediaCtl(prog)
-	if svcErr == nil && svc != nil {
+	if svcErr != nil {
+		applog.Warn("media control (MPRIS/NowPlaying) unavailable: %v", svcErr)
+	} else if svc != nil {
 		defer svc.Close()
 	}
 
