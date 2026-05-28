@@ -161,6 +161,9 @@ func download(url string) ([]byte, error) {
 	if len(body) > maxPluginSize {
 		return nil, fmt.Errorf("plugin too large (max %d bytes)", maxPluginSize)
 	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty response body")
+	}
 	return body, nil
 }
 
