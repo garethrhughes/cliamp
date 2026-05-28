@@ -46,6 +46,13 @@ func (c *Client) authToken() string {
 	return c.token
 }
 
+// clearCache discards the cached album list so the next Albums call re-fetches.
+func (c *Client) clearCache() {
+	c.mu.Lock()
+	c.albumCache = nil
+	c.mu.Unlock()
+}
+
 // NewClient returns a Client for the given server URL and API token.
 func NewClient(baseURL, token, userID, user, password string) *Client {
 	return &Client{

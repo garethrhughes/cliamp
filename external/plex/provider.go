@@ -88,6 +88,15 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 	return lists, nil
 }
 
+// Refresh clears cached playlist and track data so the next call re-fetches
+// from the server. Implements playlist.Refresher.
+func (p *Provider) Refresh() {
+	p.mu.Lock()
+	p.playlistCache = nil
+	p.trackCache = nil
+	p.mu.Unlock()
+}
+
 // Tracks returns the tracks for the album identified by albumRatingKey.
 // Each track's Path is a complete authenticated HTTP URL ready for the player.
 // Tracks with no streamable part (missing Media/Part data) are silently skipped.

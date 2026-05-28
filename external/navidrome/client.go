@@ -311,6 +311,15 @@ func (c *NavidromeClient) Tracks(id string) ([]playlist.Track, error) {
 	return slices.Clone(tracks), nil
 }
 
+// Refresh clears cached playlist and track data so the next Playlists/Tracks
+// call re-fetches from the server. Implements playlist.Refresher.
+func (c *NavidromeClient) Refresh() {
+	c.mu.Lock()
+	c.playlistCache = nil
+	c.trackCache = nil
+	c.mu.Unlock()
+}
+
 // Artists returns all artists from the server, flattening the index structure.
 func (c *NavidromeClient) Artists() ([]Artist, error) {
 	var result struct {
