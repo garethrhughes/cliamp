@@ -135,52 +135,21 @@ func loadFavoriteStations(path string) ([]CatalogStation, error) {
 	}
 
 	var stations []CatalogStation
-	var current *CatalogStation
-
-	for rawLine := range strings.SplitSeq(string(data), "\n") {
-		line := strings.TrimSpace(rawLine)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+	tomlutil.ParseSections(data, "station", func(f map[string]string) {
+		s := CatalogStation{
+			Name:     f["name"],
+			URL:      f["url"],
+			Country:  f["country"],
+			Codec:    f["codec"],
+			Tags:     f["tags"],
+			Homepage: f["homepage"],
 		}
-		if line == "[[station]]" {
-			if current != nil && current.Name != "" && current.URL != "" {
-				stations = append(stations, *current)
-			}
-			current = &CatalogStation{}
-			continue
+		if n, err := strconv.Atoi(f["bitrate"]); err == nil {
+			s.Bitrate = n
 		}
-		if current == nil {
-			continue
+		if s.Name != "" && s.URL != "" {
+			stations = append(stations, s)
 		}
-
-		key, val, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		key = strings.TrimSpace(key)
-		val = strings.TrimSpace(val)
-
-		switch key {
-		case "name":
-			current.Name = tomlutil.Unquote(val)
-		case "url":
-			current.URL = tomlutil.Unquote(val)
-		case "country":
-			current.Country = tomlutil.Unquote(val)
-		case "codec":
-			current.Codec = tomlutil.Unquote(val)
-		case "tags":
-			current.Tags = tomlutil.Unquote(val)
-		case "homepage":
-			current.Homepage = tomlutil.Unquote(val)
-		case "bitrate":
-			if n, err := strconv.Atoi(val); err == nil {
-				current.Bitrate = n
-			}
-		}
-	}
-	if current != nil && current.Name != "" && current.URL != "" {
-		stations = append(stations, *current)
-	}
+	})
 	return stations, nil
 }

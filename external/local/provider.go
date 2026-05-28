@@ -453,71 +453,32 @@ func (p *Provider) loadTOML(path string) ([]playlist.Track, error) {
 	}
 
 	var tracks []playlist.Track
-	var current *playlist.Track
-
-	for rawLine := range strings.SplitSeq(string(data), "\n") {
-		line := strings.TrimSpace(rawLine)
-
-		// Skip comments and blank lines.
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+	tomlutil.ParseSections(data, "track", func(f map[string]string) {
+		t := playlist.Track{
+			Path:   f["path"],
+			Title:  f["title"],
+			Artist: f["artist"],
+			Album:  f["album"],
+			Genre:  f["genre"],
+			Feed:   f["feed"] == "true",
 		}
-
-		// New track section.
-		if line == "[[track]]" {
-			if current != nil {
-				tracks = append(tracks, *current)
-			}
-			current = &playlist.Track{}
-			continue
-		}
-
-		if current == nil {
-			continue
-		}
-
-		// Parse key = "value" lines.
-		key, val, ok := strings.Cut(line, "=")
+		t.Stream = playlist.IsURL(t.Path)
+		// "favorite" is the pre-rename alias for "bookmark"; prefer bookmark.
+		bookmark, ok := f["bookmark"]
 		if !ok {
-			continue
+			bookmark = f["favorite"]
 		}
-		key = strings.TrimSpace(key)
-		val = strings.TrimSpace(val)
-		val = tomlutil.Unquote(val)
-
-		switch key {
-		case "path":
-			current.Path = val
-			current.Stream = playlist.IsURL(val)
-		case "feed":
-			current.Feed = val == "true"
-		case "title":
-			current.Title = val
-		case "artist":
-			current.Artist = val
-		case "album":
-			current.Album = val
-		case "genre":
-			current.Genre = val
-		case "year":
-			if n, err := strconv.Atoi(val); err == nil {
-				current.Year = n
-			}
-		case "track_number":
-			if n, err := strconv.Atoi(val); err == nil {
-				current.TrackNumber = n
-			}
-		case "duration_secs":
-			if n, err := strconv.Atoi(val); err == nil {
-				current.DurationSecs = n
-			}
-		case "bookmark", "favorite":
-			// "favorite" accepted for backward compatibility with playlists saved before the rename.
-			current.Bookmark = val == "true"
+		t.Bookmark = bookmark == "true"
+		if n, err := strconv.Atoi(f["year"]); err == nil {
+			t.Year = n
 		}
-	}
-	if current != nil {
-		tracks = append(tracks, *current)
-	}
+		if n, err := strconv.Atoi(f["track_number"]); err == nil {
+			t.TrackNumber = n
+		}
+		if n, err := strconv.Atoi(f["duration_secs"]); err == nil {
+			t.DurationSecs = n
+		}
+		tracks = append(tracks, t)
+	})
 	return tracks, nil
 }
