@@ -216,7 +216,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reconnect.at = time.Time{}
 			m.player.Stop()
 			if track, idx := m.playlist.Current(); idx >= 0 {
-				return m, tea.Batch(m.playTrack(track), tickCmdAt(ui.TickFast))
+				// Preserve any seek/lyric commands already queued this tick
+				// rather than dropping them on the early return.
+				batch := []tea.Cmd{m.playTrack(track), tickCmdAt(ui.TickFast)}
+				if seekCmd != nil {
+					batch = append(batch, seekCmd)
+				}
+				if lyricCmd != nil {
+					batch = append(batch, lyricCmd)
+				}
+				return m, tea.Batch(batch...)
 			}
 		}
 		var cmds []tea.Cmd
