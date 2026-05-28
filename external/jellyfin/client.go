@@ -322,6 +322,9 @@ func (c *Client) AlbumList(sortType string, offset, size int) ([]provider.AlbumI
 	}
 
 	sortAlbums(out, sortType)
+	if offset < 0 {
+		offset = 0
+	}
 	if offset >= len(out) {
 		return nil, nil
 	}
