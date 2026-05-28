@@ -922,10 +922,9 @@ func (m *Model) handleJumpKey(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		m.player.Seek(target - m.player.Position())
-		m.notifyPlayback()
-		if m.notifier != nil {
-			m.notifier.Seeked(m.player.Position())
-		}
+		// finishSeek notifies plugins as well as MPRIS, matching every other
+		// completed seek; the previous manual block skipped Lua plugins.
+		m.finishSeek()
 		m.closeJumpMode()
 		return nil
 	case tea.KeyBackspace:
