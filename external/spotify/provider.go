@@ -368,7 +368,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	// Check cache — if we have tracks and the snapshot_id hasn't changed, return cached.
 	p.mu.Lock()
 	if cached, ok := p.trackCache[playlistID]; ok && cached.tracks != nil {
-		tracks := cached.tracks
+		tracks := slices.Clone(cached.tracks)
 		p.mu.Unlock()
 		return tracks, nil
 	}
@@ -488,7 +488,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	}
 	p.mu.Unlock()
 
-	return all, nil
+	return slices.Clone(all), nil
 }
 
 // isAuthError returns true if the error is an authentication/session-related
