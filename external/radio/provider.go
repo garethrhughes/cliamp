@@ -205,11 +205,9 @@ func (p *Provider) ToggleFavorite(id string) (added bool, name string, err error
 	}
 
 	if p.favorites.Contains(s.URL) {
-		_ = p.favorites.Remove(s.URL)
-		return false, s.Name, nil
+		return false, s.Name, p.favorites.Remove(s.URL)
 	}
-	_ = p.favorites.Add(s)
-	return true, s.Name, nil
+	return true, s.Name, p.favorites.Add(s)
 }
 
 // SetSearchResults activates search mode with the given results.
