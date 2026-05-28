@@ -75,8 +75,8 @@ func (o Overrides) Apply(cfg *Config) {
 	if o.LogLevel != nil {
 		cfg.LogLevel = *o.LogLevel
 	}
-	if o.LowPower != nil && *o.LowPower {
-		cfg.LowPower = true
+	if o.LowPower != nil {
+		cfg.LowPower = *o.LowPower
 	}
 	cfg.clamp()
 }
