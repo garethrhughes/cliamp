@@ -178,7 +178,10 @@ func New(send func(tea.Msg)) (*Service, error) {
 				if v > 1 {
 					v = 1
 				}
-				go svc.send(playback.SetVolumeMsg{VolumeDB: linearToDb(v)})
+				// Send synchronously: an extra goroutine per change lets rapid
+				// volume updates apply out of order. send (prog.Send) is already
+				// goroutine-safe and non-blocking.
+				svc.send(playback.SetVolumeMsg{VolumeDB: linearToDb(v)})
 				return nil
 			}},
 			"Position":      {Value: int64(0), Writable: false, Emit: prop.EmitFalse},
