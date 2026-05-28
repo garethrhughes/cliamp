@@ -14,6 +14,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 
 	"cliamp/internal/appdir"
+	"cliamp/luaplugin"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -202,6 +203,11 @@ func scanPlugins(dir string) ([]pluginInfo, error) {
 func extractMetadata(path string) pluginInfo {
 	L := lua.NewState(lua.Options{SkipOpenLibs: false})
 	defer L.Close()
+
+	// Apply the same sandbox as the runtime: extractMetadata runs DoFile on
+	// the whole plugin file (not just register()), so top-level code must not
+	// have access to os.execute/io/dofile when merely listing plugins.
+	luaplugin.Sandbox(L)
 
 	var info pluginInfo
 
