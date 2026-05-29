@@ -2213,6 +2213,11 @@ p:<span class="fn">on</span>(<span class="str">"track.change"</span>, <span clas
         <div class="key-row"><kbd>track.change</kbd><span>New track starts playing</span></div>
         <div class="key-row"><kbd>track.scrobble</kbd><span>Track played &ge;50% or &ge;4 min</span></div>
         <div class="key-row"><kbd>playback.state</kbd><span>Play, pause, stop, seek, volume change</span></div>
+        <div class="key-row"><kbd>player.seek</kbd><span>A seek completes (position, duration)</span></div>
+        <div class="key-row"><kbd>player.volume</kbd><span>Volume changes (db)</span></div>
+        <div class="key-row"><kbd>player.eq</kbd><span>EQ band or preset changes</span></div>
+        <div class="key-row"><kbd>player.mode</kbd><span>Shuffle toggled or repeat cycled</span></div>
+        <div class="key-row"><kbd>queue.change</kbd><span>Playlist or play-next queue changes</span></div>
         <div class="key-row"><kbd>app.start</kbd><span>After all plugins loaded</span></div>
         <div class="key-row"><kbd>app.quit</kbd><span>Before shutdown</span></div>
       </div>
@@ -2227,6 +2232,14 @@ p:<span class="fn">on</span>(<span class="str">"track.change"</span>, <span clas
       <div class="plugin-api">
         <div class="plugin-api-name">track</div>
         <p>Current metadata: <code>title()</code>, <code>artist()</code>, <code>album()</code>, <code>genre()</code>, <code>duration_secs()</code></p>
+      </div>
+      <div class="plugin-api">
+        <div class="plugin-api-name">queue</div>
+        <p>Read the playlist: <code>list()</code>, <code>count()</code>, <code>current()</code>. Mutate it with <code>add()</code>, <code>jump()</code>, <code>remove()</code>, <code>move()</code> (requires <code>permissions = {"control"}</code>).</p>
+      </div>
+      <div class="plugin-api">
+        <div class="plugin-api-name">store</div>
+        <p>Persistent per-plugin KV: <code>set()</code>, <code>get()</code>, <code>delete()</code>, <code>keys()</code>, <code>clear()</code>. Survives restarts; scoped to your plugin.</p>
       </div>
       <div class="plugin-api">
         <div class="plugin-api-name">http</div>
