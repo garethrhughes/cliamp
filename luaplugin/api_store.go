@@ -57,18 +57,41 @@ func (s *pluginStore) load() {
 }
 
 // save writes the in-memory state back to disk. Caller must hold s.mu.
+//
+// The store may hold plugin credentials (API keys, tokens), so the directory
+// and file are owner-only (0o700/0o600). The write is atomic: a temp file in
+// the same directory is renamed into place so a crash mid-write can never leave
+// a truncated or partially written store.
 func (s *pluginStore) save() error {
 	if s.path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
+	dir := filepath.Dir(s.path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(s.data)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path, data, 0o644)
+	tmp, err := os.CreateTemp(dir, ".store-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // no-op once renamed; cleans up on any error path
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, s.path)
 }
 
 // registerStoreAPI adds cliamp.store.{get,set,delete,keys,clear} to the cliamp
