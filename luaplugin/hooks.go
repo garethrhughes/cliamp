@@ -45,6 +45,14 @@ func (p *Plugin) callBounded(nret int, fn *lua.LFunction, args ...lua.LValue) er
 	return p.L.CallByParam(lua.P{Fn: fn, NRet: nret, Protect: true}, args...)
 }
 
+// logHookErr records a callback error to stderr and the plugin log.
+func (m *Manager) logHookErr(name, label string, err error) {
+	log.Printf("[lua:%s] %s error: %v", name, label, err)
+	if m.logger != nil {
+		m.logger.log(name, "error", "%s error: %v", label, err)
+	}
+}
+
 // invokeHook calls a plugin's Lua callback under the plugin's mutex with a
 // bounded context. Logs any error to the plugin log. Used by every dispatch
 // site that fires Lua from Go (events, key binds, command handlers).
@@ -52,20 +60,8 @@ func (m *Manager) invokeHook(h *luaHook, label string, args ...lua.LValue) {
 	h.plugin.mu.Lock()
 	defer h.plugin.mu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), hookTimeout)
-	defer cancel()
-	h.plugin.L.SetContext(ctx)
-	defer h.plugin.L.RemoveContext()
-
-	if err := h.plugin.L.CallByParam(lua.P{
-		Fn:      h.fn,
-		NRet:    0,
-		Protect: true,
-	}, args...); err != nil {
-		log.Printf("[lua:%s] %s error: %v", h.plugin.Name, label, err)
-		if m.logger != nil {
-			m.logger.log(h.plugin.Name, "error", "%s error: %v", label, err)
-		}
+	if err := h.plugin.callBounded(0, h.fn, args...); err != nil {
+		m.logHookErr(h.plugin.Name, label, err)
 	}
 }
 
@@ -115,21 +111,9 @@ func (m *Manager) invokeHookWithData(h *luaHook, label string, data map[string]a
 	h.plugin.mu.Lock()
 	defer h.plugin.mu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), hookTimeout)
-	defer cancel()
-	h.plugin.L.SetContext(ctx)
-	defer h.plugin.L.RemoveContext()
-
 	arg := dataToTable(h.plugin.L, data)
-	if err := h.plugin.L.CallByParam(lua.P{
-		Fn:      h.fn,
-		NRet:    0,
-		Protect: true,
-	}, arg); err != nil {
-		log.Printf("[lua:%s] %s error: %v", h.plugin.Name, label, err)
-		if m.logger != nil {
-			m.logger.log(h.plugin.Name, "error", "%s error: %v", label, err)
-		}
+	if err := h.plugin.callBounded(0, h.fn, arg); err != nil {
+		m.logHookErr(h.plugin.Name, label, err)
 	}
 }
 
