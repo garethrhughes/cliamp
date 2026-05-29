@@ -174,42 +174,21 @@ func (s *Store) saveLocked(entries []Entry) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-	ew := &errWriter{w: f}
+	// Build the full content in memory (writes to a Builder can't fail), then
+	// write a temp file and rename so a partial/failed write can never truncate
+	// the existing history file.
+	var b strings.Builder
 	for i, e := range entries {
 		if i > 0 {
-			ew.printf("\n")
+			fmt.Fprintln(&b)
 		}
-		writeEntry(ew, e)
+		writeEntry(&b, e)
 	}
-	if ew.err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return ew.err
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmp)
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {
 		return err
 	}
 	return os.Rename(tmp, s.path)
-}
-
-// errWriter records the first write error so a chain of formatted writes can be
-// checked once at the end instead of after every call.
-type errWriter struct {
-	w   io.Writer
-	err error
-}
-
-func (ew *errWriter) printf(format string, a ...any) {
-	if ew.err != nil {
-		return
-	}
-	_, ew.err = fmt.Fprintf(ew.w, format, a...)
 }
 
 // mergeTrackMeta keeps any non-empty metadata from the previous entry when a
@@ -240,28 +219,28 @@ func mergeTrackMeta(prev, cur playlist.Track) playlist.Track {
 	return cur
 }
 
-func writeEntry(ew *errWriter, e Entry) {
-	ew.printf("[[entry]]\n")
-	ew.printf("played_at = %q\n", e.PlayedAt.UTC().Format(time.RFC3339))
-	ew.printf("path = %q\n", e.Track.Path)
-	ew.printf("title = %q\n", e.Track.Title)
+func writeEntry(w io.Writer, e Entry) {
+	fmt.Fprintf(w, "[[entry]]\n")
+	fmt.Fprintf(w, "played_at = %q\n", e.PlayedAt.UTC().Format(time.RFC3339))
+	fmt.Fprintf(w, "path = %q\n", e.Track.Path)
+	fmt.Fprintf(w, "title = %q\n", e.Track.Title)
 	if e.Track.Artist != "" {
-		ew.printf("artist = %q\n", e.Track.Artist)
+		fmt.Fprintf(w, "artist = %q\n", e.Track.Artist)
 	}
 	if e.Track.Album != "" {
-		ew.printf("album = %q\n", e.Track.Album)
+		fmt.Fprintf(w, "album = %q\n", e.Track.Album)
 	}
 	if e.Track.Genre != "" {
-		ew.printf("genre = %q\n", e.Track.Genre)
+		fmt.Fprintf(w, "genre = %q\n", e.Track.Genre)
 	}
 	if e.Track.Year != 0 {
-		ew.printf("year = %d\n", e.Track.Year)
+		fmt.Fprintf(w, "year = %d\n", e.Track.Year)
 	}
 	if e.Track.TrackNumber != 0 {
-		ew.printf("track_number = %d\n", e.Track.TrackNumber)
+		fmt.Fprintf(w, "track_number = %d\n", e.Track.TrackNumber)
 	}
 	if e.Track.DurationSecs != 0 {
-		ew.printf("duration_secs = %d\n", e.Track.DurationSecs)
+		fmt.Fprintf(w, "duration_secs = %d\n", e.Track.DurationSecs)
 	}
 }
 
