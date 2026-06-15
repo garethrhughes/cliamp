@@ -361,7 +361,7 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 			query := url.Values{
 				"limit":  {fmt.Sprintf("%d", limit)},
 				"offset": {fmt.Sprintf("%d", offset)},
-				"fields": {"items(item(id,name,type,uri,artists(name),album(name,release_date),show(name),release_date,duration_ms,track_number,is_playable,restrictions(reason))),total"},
+				"fields": {"items(item(id,name,type,uri,artists(name),album(name,release_date,images),show(name,images),images,release_date,duration_ms,track_number,is_playable,restrictions(reason))),total"},
 			}
 			path := fmt.Sprintf("/v1/playlists/%s/items", playlistID)
 			resp, err = p.webAPI(ctx, "GET", path, query)
