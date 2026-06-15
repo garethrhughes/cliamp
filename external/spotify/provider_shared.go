@@ -49,6 +49,38 @@ type spotifyArtist struct {
 	Name string `json:"name"`
 }
 
+// spotifyImage is a cover image variant from the Spotify Web API. The API
+// returns variants ordered widest first.
+type spotifyImage struct {
+	URL    string `json:"url"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+}
+
+// bestImageURL picks the variant nearest 600px wide (cliamp's art convention),
+// falling back to the first entry, or "" when none are present.
+func bestImageURL(imgs []spotifyImage) string {
+	best := ""
+	bestDiff := 1 << 30
+	for _, im := range imgs {
+		if im.URL == "" {
+			continue
+		}
+		if best == "" {
+			best = im.URL // first valid: covers width==0 (unknown size)
+		}
+		diff := im.Width - 600
+		if diff < 0 {
+			diff = -diff
+		}
+		if im.Width > 0 && diff < bestDiff {
+			bestDiff = diff
+			best = im.URL
+		}
+	}
+	return best
+}
+
 // spotifyItem is a track or podcast episode object from the Spotify Web API.
 // Playlists can hold both; episodes carry a show instead of artists/album.
 type spotifyItem struct {
@@ -58,16 +90,19 @@ type spotifyItem struct {
 	URI     string          `json:"uri"`  // canonical spotify:track:... / spotify:episode:...
 	Artists []spotifyArtist `json:"artists"`
 	Album   struct {
-		Name        string `json:"name"`
-		ReleaseDate string `json:"release_date"`
+		Name        string         `json:"name"`
+		ReleaseDate string         `json:"release_date"`
+		Images      []spotifyImage `json:"images"`
 	} `json:"album"`
 	Show struct {
-		Name string `json:"name"`
+		Name   string         `json:"name"`
+		Images []spotifyImage `json:"images"`
 	} `json:"show"`
-	ReleaseDate  string `json:"release_date"` // episodes carry this at top level
-	DurationMs   int    `json:"duration_ms"`
-	TrackNumber  int    `json:"track_number"`
-	IsPlayable   *bool  `json:"is_playable"`
+	Images       []spotifyImage `json:"images"`       // episodes carry cover art here
+	ReleaseDate  string         `json:"release_date"` // episodes carry this at top level
+	DurationMs   int            `json:"duration_ms"`
+	TrackNumber  int            `json:"track_number"`
+	IsPlayable   *bool          `json:"is_playable"`
 	Restrictions struct {
 		Reason string `json:"reason"`
 	} `json:"restrictions"`
@@ -87,9 +122,14 @@ func trackFromItem(t *spotifyItem) playlist.Track {
 	}
 	artist := strings.Join(artists, ", ")
 	album := t.Album.Name
+	artURL := bestImageURL(t.Album.Images)
 	if t.Type == "episode" {
 		artist = t.Show.Name
 		album = t.Show.Name
+		artURL = bestImageURL(t.Images)
+		if artURL == "" {
+			artURL = bestImageURL(t.Show.Images)
+		}
 	}
 
 	releaseDate := t.Album.ReleaseDate
@@ -113,6 +153,7 @@ func trackFromItem(t *spotifyItem) playlist.Track {
 		Title:        t.Name,
 		Artist:       artist,
 		Album:        album,
+		ArtURL:       artURL,
 		Year:         year,
 		Stream:       false, // must be false: true causes togglePlayPause to stop+restart instead of pause/resume
 		DurationSecs: t.DurationMs / 1000,

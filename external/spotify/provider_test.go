@@ -38,6 +38,11 @@ func TestTrackFromItem(t *testing.T) {
 		}
 		item.Album.Name = "Discovery"
 		item.Album.ReleaseDate = "2001-03-12"
+		item.Album.Images = []spotifyImage{
+			{URL: "https://i.scdn.co/image/big", Width: 640},
+			{URL: "https://i.scdn.co/image/mid", Width: 300},
+			{URL: "https://i.scdn.co/image/small", Width: 64},
+		}
 
 		got := trackFromItem(item)
 		if got.Path != "spotify:track:abc" {
@@ -45,6 +50,10 @@ func TestTrackFromItem(t *testing.T) {
 		}
 		if got.Artist != "Daft Punk" || got.Album != "Discovery" || got.Year != 2001 {
 			t.Errorf("got %q / %q / %d, want Daft Punk / Discovery / 2001", got.Artist, got.Album, got.Year)
+		}
+		// 640 is nearest to the 600px convention.
+		if got.ArtURL != "https://i.scdn.co/image/big" {
+			t.Errorf("ArtURL = %q, want .../big", got.ArtURL)
 		}
 		if got.DurationSecs != 212 {
 			t.Errorf("DurationSecs = %d, want 212", got.DurationSecs)
