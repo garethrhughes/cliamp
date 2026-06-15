@@ -32,6 +32,7 @@ type Track struct {
 	Genre       string
 	TrackNumber int
 	URL         string
+	ArtURL      string // cover art URL (http(s) or file://), empty if unknown
 	Duration    time.Duration
 }
 

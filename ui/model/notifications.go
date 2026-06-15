@@ -95,6 +95,7 @@ func (m *Model) notifyPlayback() {
 			Genre:       track.Genre,
 			TrackNumber: track.TrackNumber,
 			URL:         track.Path,
+			ArtURL:      track.ArtURL,
 			Duration:    m.player.Duration(),
 		},
 		VolumeDB: m.player.Volume(),

@@ -18,6 +18,7 @@ func TestMakeMetadataMapsPlaybackTrackToMPRISFields(t *testing.T) {
 		Genre:       "Ambient",
 		TrackNumber: 7,
 		URL:         "file:///tmp/song.mp3",
+		ArtURL:      "https://example.com/cover.jpg",
 		Duration:    3*time.Minute + 15*time.Second,
 	}
 
@@ -31,6 +32,7 @@ func TestMakeMetadataMapsPlaybackTrackToMPRISFields(t *testing.T) {
 		"xesam:genre":       dbus.MakeVariant([]string{"Ambient"}),
 		"xesam:trackNumber": dbus.MakeVariant(7),
 		"xesam:url":         dbus.MakeVariant("file:///tmp/song.mp3"),
+		"mpris:artUrl":      dbus.MakeVariant("https://example.com/cover.jpg"),
 		"mpris:length":      dbus.MakeVariant(track.Duration.Microseconds()),
 	}
 
@@ -64,6 +66,7 @@ func TestMakeMetadataOmitsEmptyOptionalFields(t *testing.T) {
 		"xesam:genre",
 		"xesam:trackNumber",
 		"xesam:url",
+		"mpris:artUrl",
 		"mpris:length",
 	} {
 		if _, ok := got[key]; ok {

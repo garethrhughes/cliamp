@@ -37,6 +37,9 @@ func makeMetadata(t playback.Track, trackID dbus.ObjectPath) map[string]dbus.Var
 	if t.URL != "" {
 		m["xesam:url"] = dbus.MakeVariant(t.URL)
 	}
+	if t.ArtURL != "" {
+		m["mpris:artUrl"] = dbus.MakeVariant(t.ArtURL)
+	}
 	if t.Duration > 0 {
 		m["mpris:length"] = dbus.MakeVariant(t.Duration.Microseconds())
 	}

@@ -69,6 +69,7 @@ Track metadata is published under the standard MPRIS keys:
 | `xesam:artist` | Artist name (as a list with one entry) |
 | `xesam:album` | Album name, when available |
 | `xesam:url` | File path or stream URL |
+| `mpris:artUrl` | Cover art URL, when the provider supplies one |
 | `mpris:length` | Duration in microseconds |
 
 Query metadata with:
@@ -80,6 +81,8 @@ playerctl metadata title        # just the title
 ```
 
 For live radio streams that provide ICY metadata, the artist and title fields update dynamically as the station reports new track information.
+
+`mpris:artUrl` lets desktop media widgets (KDE's Media Player applet, GNOME, the lock screen, and similar) display cover art. It is populated for providers that expose an artwork endpoint — currently Jellyfin, Emby, and Navidrome — and omitted otherwise.
 
 ### Status
 

@@ -181,6 +181,7 @@ func (p *Provider) toPlaylistTracks(jfTracks []Track) []playlist.Track {
 			Year:         t.Year,
 			TrackNumber:  t.TrackNumber,
 			DurationSecs: t.DurationSecs,
+			ArtURL:       p.client.ImageURL(t.ID),
 			Stream:       true,
 			ProviderMeta: map[string]string{provider.MetaJellyfinID: t.ID},
 		})

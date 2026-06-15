@@ -489,6 +489,28 @@ func (c *Client) StreamURL(itemID string) string {
 	return u
 }
 
+// ImageURL returns the primary (cover) image URL for an item, or "" if itemID
+// is empty. The image endpoint is unauthenticated on Jellyfin/Emby, but the
+// api_key is included so private servers that require it still resolve.
+func (c *Client) ImageURL(itemID string) string {
+	if itemID == "" {
+		return ""
+	}
+	_ = c.ensureAuth()
+	v := url.Values{
+		"maxHeight": {"600"},
+		"quality":   {"90"},
+	}
+	if tok := c.authToken(); tok != "" {
+		v.Set("api_key", tok)
+	}
+	u := c.baseURL + path.Join("/", "Items", itemID, "Images", "Primary")
+	if enc := v.Encode(); enc != "" {
+		u += "?" + enc
+	}
+	return u
+}
+
 func (c *Client) ReportNowPlaying(track playlist.Track, position time.Duration, canSeek bool) error {
 	return c.postJSON("/Sessions/Playing", playbackInfo{
 		CanSeek:       canSeek,

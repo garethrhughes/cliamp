@@ -40,11 +40,12 @@ type Track struct {
 	Genre        string
 	Year         int
 	TrackNumber  int
-	Stream       bool // true for HTTP/HTTPS URLs
-	Realtime     bool // true for real-time/live streams (e.g. radio)
-	Feed         bool // true for RSS/podcast feed URLs (resolved before playback)
-	DurationSecs int  // known duration in seconds (0 = unknown)
-	Bookmark     bool // user-bookmarked track
+	ArtURL       string // cover art URL (http(s)), set by providers when available
+	Stream       bool   // true for HTTP/HTTPS URLs
+	Realtime     bool   // true for real-time/live streams (e.g. radio)
+	Feed         bool   // true for RSS/podcast feed URLs (resolved before playback)
+	DurationSecs int    // known duration in seconds (0 = unknown)
+	Bookmark     bool   // user-bookmarked track
 
 	Unplayable bool // true when the track is known not playable in the current playback context
 

@@ -193,6 +193,7 @@ func (p *Provider) toPlaylistTracks(embyTracks []Track) []playlist.Track {
 			Year:         t.Year,
 			TrackNumber:  t.TrackNumber,
 			DurationSecs: t.DurationSecs,
+			ArtURL:       p.client.ImageURL(t.ID),
 			Stream:       true,
 			ProviderMeta: map[string]string{provider.MetaEmbyID: t.ID},
 		})

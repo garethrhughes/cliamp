@@ -472,10 +472,21 @@ func (c *NavidromeClient) songToTrack(s subsonicSong) playlist.Track {
 		Year:         s.Year,
 		TrackNumber:  s.TrackNumber,
 		Genre:        s.Genre,
+		ArtURL:       c.coverArtURL(s.ID),
 		Stream:       true,
 		DurationSecs: s.Duration,
 		ProviderMeta: map[string]string{provider.MetaNavidromeID: s.ID},
 	}
+}
+
+// coverArtURL builds the authenticated Subsonic getCoverArt URL for a song ID.
+// Subsonic resolves a song's cover from its own ID, so no separate art ID is
+// needed.
+func (c *NavidromeClient) coverArtURL(id string) string {
+	if id == "" {
+		return ""
+	}
+	return c.buildURL("getCoverArt", url.Values{"id": {id}, "size": {"600"}})
 }
 
 // subsonicAlbum holds the common JSON fields returned by the Subsonic API
