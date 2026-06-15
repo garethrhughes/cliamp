@@ -337,6 +337,7 @@ func songsToTracks(songs []song) []playlist.Track {
 			Title:        s.Name,
 			Artist:       joinArtists(s.Artists),
 			Album:        s.Album.Name,
+			ArtURL:       neteaseArtURL(s.Album.PicURL),
 			TrackNumber:  s.TrackNumber,
 			Stream:       true,
 			DurationSecs: millisToSeconds(s.DurationMS),
@@ -348,6 +349,22 @@ func songsToTracks(songs []song) []playlist.Track {
 
 func songURL(id int64) string {
 	return "https://music.163.com/#/song?id=" + strconv.FormatInt(id, 10)
+}
+
+// neteaseArtURL normalizes an album picUrl to an https cover URL sized for media
+// widgets. Returns "" when no picture is available.
+func neteaseArtURL(pic string) string {
+	pic = strings.TrimSpace(pic)
+	if pic == "" {
+		return ""
+	}
+	if rest, ok := strings.CutPrefix(pic, "http://"); ok {
+		pic = "https://" + rest
+	}
+	if strings.Contains(pic, "?") {
+		return pic // already parameterized; leave as-is
+	}
+	return pic + "?param=512y512"
 }
 
 func joinArtists(artists []artist) string {
@@ -593,5 +610,6 @@ type artist struct {
 }
 
 type album struct {
-	Name string `json:"name"`
+	Name   string `json:"name"`
+	PicURL string `json:"picUrl"`
 }

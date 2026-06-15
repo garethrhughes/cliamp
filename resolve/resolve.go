@@ -394,13 +394,39 @@ func isHLSPlaylist(body []byte) bool {
 
 // ytdlFlatEntry holds JSON fields from yt-dlp --flat-playlist output.
 type ytdlFlatEntry struct {
-	URL                string  `json:"url"`
-	WebpageURL         string  `json:"webpage_url"`
-	Title              string  `json:"title"`
-	Uploader           string  `json:"uploader"`
-	PlaylistUploader   string  `json:"playlist_uploader"`
-	WebpageURLBasename string  `json:"webpage_url_basename"`
-	Duration           float64 `json:"duration"`
+	URL                string          `json:"url"`
+	WebpageURL         string          `json:"webpage_url"`
+	Title              string          `json:"title"`
+	Uploader           string          `json:"uploader"`
+	PlaylistUploader   string          `json:"playlist_uploader"`
+	WebpageURLBasename string          `json:"webpage_url_basename"`
+	Duration           float64         `json:"duration"`
+	Thumbnail          string          `json:"thumbnail"`
+	Thumbnails         []ytdlThumbnail `json:"thumbnails"`
+}
+
+// ytdlThumbnail is one entry from yt-dlp's thumbnails array.
+type ytdlThumbnail struct {
+	URL   string `json:"url"`
+	Width int    `json:"width"`
+}
+
+// bestThumbnailURL returns the cover image URL for a yt-dlp entry, preferring
+// the singular thumbnail field, then the widest of the thumbnails array.
+func bestThumbnailURL(e ytdlFlatEntry) string {
+	if e.Thumbnail != "" {
+		return e.Thumbnail
+	}
+	best, bestW := "", -1
+	for _, th := range e.Thumbnails {
+		if th.URL == "" {
+			continue
+		}
+		if best == "" || th.Width > bestW {
+			best, bestW = th.URL, th.Width
+		}
+	}
+	return best
 }
 
 // ytdlFullEntry holds JSON fields from yt-dlp --print-json output (download mode).
@@ -447,6 +473,7 @@ func resolveYouTube(pageURL string) ([]playlist.Track, error) {
 					Path:         "https://www.youtube.com/watch?v=" + entry.ID,
 					Title:        entry.Title,
 					Artist:       entry.Author,
+					ArtURL:       youTubeThumbURL(entry.ID),
 					Stream:       true,
 					DurationSecs: int(entry.Duration.Seconds()),
 				})
@@ -470,9 +497,19 @@ func resolveYouTube(pageURL string) ([]playlist.Track, error) {
 		Path:         "https://www.youtube.com/watch?v=" + video.ID,
 		Title:        video.Title,
 		Artist:       video.Author,
+		ArtURL:       youTubeThumbURL(video.ID),
 		Stream:       true,
 		DurationSecs: int(video.Duration.Seconds()),
 	}}, nil
+}
+
+// youTubeThumbURL returns the cover image URL for a video ID. hqdefault always
+// exists for any video, so it is preferred over maxresdefault.
+func youTubeThumbURL(videoID string) string {
+	if videoID == "" {
+		return ""
+	}
+	return "https://i.ytimg.com/vi/" + videoID + "/hqdefault.jpg"
 }
 
 // ResolveYTDLBatch is like resolveYTDL but fetches a specific range
@@ -568,6 +605,7 @@ func resolveYTDLRange(pageURL string, start, end int) ([]playlist.Track, error) 
 			Path:         trackURL,
 			Title:        title,
 			Artist:       artist,
+			ArtURL:       bestThumbnailURL(e),
 			Stream:       true,
 			DurationSecs: int(e.Duration),
 		})

@@ -166,3 +166,32 @@ func TestLiveCheckLoginWithBrowser(t *testing.T) {
 func osWriteFile(path, data string) error {
 	return os.WriteFile(path, []byte(data), 0o644)
 }
+
+func TestNeteaseArtURL(t *testing.T) {
+	cases := map[string]string{
+		"":                               "",
+		"http://p1.music.126.net/x.jpg":  "https://p1.music.126.net/x.jpg?param=512y512",
+		"https://p1.music.126.net/y.jpg": "https://p1.music.126.net/y.jpg?param=512y512",
+		"https://x/z.jpg?foo=1":          "https://x/z.jpg?foo=1",
+	}
+	for in, want := range cases {
+		if got := neteaseArtURL(in); got != want {
+			t.Errorf("neteaseArtURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestSongsToTracksSetsArtURL(t *testing.T) {
+	songs := []song{{
+		ID:    1,
+		Name:  "Song",
+		Album: album{Name: "Album", PicURL: "http://p1.music.126.net/a.jpg"},
+	}}
+	tracks := songsToTracks(songs)
+	if len(tracks) != 1 {
+		t.Fatalf("got %d tracks, want 1", len(tracks))
+	}
+	if tracks[0].ArtURL != "https://p1.music.126.net/a.jpg?param=512y512" {
+		t.Errorf("ArtURL = %q", tracks[0].ArtURL)
+	}
+}

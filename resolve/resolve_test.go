@@ -224,3 +224,32 @@ func TestResolveM3U_PlainPlaylist_StillParsesTracks(t *testing.T) {
 		t.Fatalf("got %d tracks, want 2 (regression guard)", len(tracks))
 	}
 }
+
+func TestBestThumbnailURL(t *testing.T) {
+	// Singular thumbnail wins.
+	if got := bestThumbnailURL(ytdlFlatEntry{Thumbnail: "https://a/t.jpg"}); got != "https://a/t.jpg" {
+		t.Errorf("singular thumbnail: got %q", got)
+	}
+	// Otherwise the widest from the array.
+	e := ytdlFlatEntry{Thumbnails: []ytdlThumbnail{
+		{URL: "https://a/small.jpg", Width: 100},
+		{URL: "https://a/big.jpg", Width: 500},
+		{URL: "https://a/mid.jpg", Width: 300},
+	}}
+	if got := bestThumbnailURL(e); got != "https://a/big.jpg" {
+		t.Errorf("widest thumbnail: got %q", got)
+	}
+	// Nothing available.
+	if got := bestThumbnailURL(ytdlFlatEntry{}); got != "" {
+		t.Errorf("empty: got %q", got)
+	}
+}
+
+func TestYouTubeThumbURL(t *testing.T) {
+	if got := youTubeThumbURL("abc123"); got != "https://i.ytimg.com/vi/abc123/hqdefault.jpg" {
+		t.Errorf("youTubeThumbURL = %q", got)
+	}
+	if youTubeThumbURL("") != "" {
+		t.Errorf("empty id should yield empty URL")
+	}
+}
