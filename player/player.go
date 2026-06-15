@@ -56,6 +56,7 @@ type Player struct {
 	seekGen        atomic.Int64 // generation counter for yt-dlp seeks; incremented to cancel stale seeks
 
 	streamTitle      atomic.Value               // stores string, set by ICY reader callback
+	streamArt        atomic.Value               // stores string, cover art URL from the metadata resolver
 	customFactories  map[string]StreamerFactory // URI scheme prefix -> factory (e.g. "spotify:" -> fn)
 	bufferedURLMatch func(string) bool          // optional: returns true for URLs needing navBuffer pipeline
 
@@ -67,7 +68,9 @@ type Player struct {
 // broadcasters that carry no inline ICY metadata (e.g. NTS, FIP) and instead
 // publish the current track via a separate JSON API. It returns a fetch
 // function, the poll interval, and ok=false when the URL is not recognized.
-type StreamMetadataResolver func(streamURL string) (fetch func(ctx context.Context) (string, error), interval time.Duration, ok bool)
+// The fetch returns the now-playing title (in ICY "Artist - Title" form) and an
+// optional cover art URL.
+type StreamMetadataResolver func(streamURL string) (fetch func(ctx context.Context) (title, artURL string, err error), interval time.Duration, ok bool)
 
 // New creates a Player and initializes the speaker with the given quality settings.
 func New(q Quality) (*Player, error) {
@@ -695,6 +698,13 @@ func (p *Player) StreamTitle() string {
 	return v
 }
 
+// StreamArtURL returns the current stream cover art URL supplied by the
+// metadata resolver, or "" when none is available.
+func (p *Player) StreamArtURL() string {
+	v, _ := p.streamArt.Load().(string)
+	return v
+}
+
 // setStreamTitle is the ICY onMeta callback, called from the reader goroutine.
 func (p *Player) setStreamTitle(title string) {
 	p.streamTitle.Store(title)
@@ -752,16 +762,17 @@ func (p *Player) stopStreamMetadata() {
 // interval tick until ctx is cancelled, publishing non-empty titles via
 // setStreamTitle. A title fetched after cancellation is discarded so a stale
 // poller cannot clobber the next stream's metadata.
-func (p *Player) pollStreamMetadata(ctx context.Context, fetch func(context.Context) (string, error), interval time.Duration) {
+func (p *Player) pollStreamMetadata(ctx context.Context, fetch func(context.Context) (string, string, error), interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
-		title, err := fetch(ctx)
+		title, artURL, err := fetch(ctx)
 		if ctx.Err() != nil {
 			return
 		}
 		if err == nil && title != "" {
 			p.setStreamTitle(title)
+			p.streamArt.Store(artURL)
 		}
 		select {
 		case <-ctx.Done():

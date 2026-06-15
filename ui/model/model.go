@@ -243,6 +243,9 @@ type Model struct {
 	// Live stream title from ICY metadata (e.g., "Artist - Song")
 	streamTitle string
 
+	// Live stream cover art URL from the metadata resolver (e.g. FIP/NTS)
+	streamArtURL string
+
 	// playingTrack is the track currently owned by the audio engine. It can differ
 	// from playlist.Current() after browsing loads a new provider playlist while
 	// the old track keeps playing.

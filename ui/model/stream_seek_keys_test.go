@@ -50,6 +50,7 @@ func (f *fakeEngine) SetEQBand(int, float64)                              {}
 func (f *fakeEngine) EQBands() [10]float64                                { return [10]float64{} }
 func (f *fakeEngine) StreamErr() error                                    { return nil }
 func (f *fakeEngine) StreamTitle() string                                 { return "" }
+func (f *fakeEngine) StreamArtURL() string                                { return "" }
 func (f *fakeEngine) StreamBytes() (downloaded, total int64)              { return 0, 0 }
 func (f *fakeEngine) SamplesInto([]float64) int                           { return 0 }
 func (f *fakeEngine) SampleRate() int                                     { return 44100 }

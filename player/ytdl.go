@@ -380,6 +380,7 @@ func decodeYTDLPipe(pageURL string, sr beep.SampleRate, bitDepth, startSec int) 
 // If startSec > 0, playback begins at that offset (seek-by-restart).
 func (p *Player) buildYTDLPipeline(pageURL string, startSec int) (*trackPipeline, error) {
 	p.streamTitle.Store("")
+	p.streamArt.Store("")
 
 	decoder, format, err := decodeYTDLPipe(pageURL, p.sr, p.bitDepth, startSec)
 	if err != nil {

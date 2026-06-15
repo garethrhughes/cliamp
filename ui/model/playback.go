@@ -195,6 +195,7 @@ func (m *Model) playTrack(track playlist.Track) tea.Cmd {
 	m.reconnect.attempts = 0
 	m.reconnect.at = time.Time{}
 	m.streamTitle = ""
+	m.streamArtURL = ""
 	m.lyrics.lines = nil
 	m.lyrics.err = nil
 	m.lyrics.query = ""

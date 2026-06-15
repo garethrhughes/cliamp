@@ -173,6 +173,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Poll ICY stream title for live radio display.
 		if title := m.player.StreamTitle(); title != "" && title != m.streamTitle {
 			m.streamTitle = title
+			m.streamArtURL = m.player.StreamArtURL()
 			m.applyHeightMode()
 			m.adjustScroll()
 			m.notifyAll()

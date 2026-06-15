@@ -56,6 +56,7 @@ type Engine interface {
 	// Stream info
 	StreamErr() error
 	StreamTitle() string
+	StreamArtURL() string
 	StreamBytes() (downloaded, total int64)
 
 	// Audio samples for visualizer

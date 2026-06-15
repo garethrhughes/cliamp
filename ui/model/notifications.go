@@ -86,6 +86,12 @@ func (m *Model) notifyPlayback() {
 	}
 	track, _ := m.currentPlaybackTrack()
 	artist, title := m.resolveTrackDisplay(track)
+	// Live streams (e.g. FIP/NTS) supply per-track art via the metadata resolver,
+	// which overrides any static art on the station track.
+	artURL := track.ArtURL
+	if track.Stream && m.streamArtURL != "" {
+		artURL = m.streamArtURL
+	}
 	m.notifier.Update(playback.State{
 		Status: status,
 		Track: playback.Track{
@@ -95,7 +101,7 @@ func (m *Model) notifyPlayback() {
 			Genre:       track.Genre,
 			TrackNumber: track.TrackNumber,
 			URL:         track.Path,
-			ArtURL:      track.ArtURL,
+			ArtURL:      artURL,
 			Duration:    m.player.Duration(),
 		},
 		VolumeDB: m.player.Volume(),

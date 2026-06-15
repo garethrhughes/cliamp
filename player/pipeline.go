@@ -102,8 +102,9 @@ func (p *Player) decodeFFmpegURLStream(path string) (*ffmpegPipeStreamer, beep.F
 // (using a Range: bytes=N- header) and records timeOffset as the playback origin.
 // For local files byteOffset is ignored; use decoder.Seek instead.
 func (p *Player) buildPipelineAt(path string, byteOffset int64, timeOffset time.Duration) (*trackPipeline, error) {
-	// Clear stream title on each new pipeline build.
+	// Clear stream title and art on each new pipeline build.
 	p.streamTitle.Store("")
+	p.streamArt.Store("")
 
 	// Custom URI schemes (e.g., spotify:track:xxx) are handled by a
 	// registered StreamerFactory, bypassing normal file/HTTP decoding.

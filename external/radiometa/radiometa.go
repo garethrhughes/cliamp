@@ -23,17 +23,17 @@ const userAgent = "cliamp/1.0 (https://github.com/bjarneo/cliamp)"
 // Resolver reports how to fetch now-playing metadata for streamURL, or ok=false
 // when the URL is not a recognized broadcaster. It satisfies
 // player.StreamMetadataResolver.
-func Resolver(streamURL string) (fetch func(ctx context.Context) (string, error), interval time.Duration, ok bool) {
+func Resolver(streamURL string) (fetch func(ctx context.Context) (title, artURL string, err error), interval time.Duration, ok bool) {
 	u := strings.ToLower(streamURL)
 	switch {
 	case matchNTS(u):
 		channel := ntsChannel(u)
-		return func(ctx context.Context) (string, error) {
+		return func(ctx context.Context) (string, string, error) {
 			return ntsNowPlaying(ctx, channel)
 		}, 30 * time.Second, true
 	case matchFIP(u):
 		station := fipStationID(u)
-		return func(ctx context.Context) (string, error) {
+		return func(ctx context.Context) (string, string, error) {
 			return fipNowPlaying(ctx, station, time.Now().Unix())
 		}, 15 * time.Second, true
 	}
@@ -83,35 +83,43 @@ type ntsLive struct {
 			BroadcastTitle string `json:"broadcast_title"`
 			Embeds         struct {
 				Details struct {
-					Name string `json:"name"`
+					Name  string `json:"name"`
+					Media struct {
+						PictureMediumLarge string `json:"picture_medium_large"`
+						PictureLarge       string `json:"picture_large"`
+						BackgroundMedLarge string `json:"background_medium_large"`
+					} `json:"media"`
 				} `json:"details"`
 			} `json:"embeds"`
 		} `json:"now"`
 	} `json:"results"`
 }
 
-func ntsNowPlaying(ctx context.Context, channel string) (string, error) {
+func ntsNowPlaying(ctx context.Context, channel string) (string, string, error) {
 	var live ntsLive
 	if err := getJSON(ctx, "https://www.nts.live/api/v2/live", &live); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return parseNTS(&live, channel), nil
+	title, art := parseNTS(&live, channel)
+	return title, art, nil
 }
 
-// parseNTS returns the current show title for the given channel. NTS is live DJ
-// radio with no per-track tagging, so the show/broadcast name is the best
-// available now-playing string. Prefers the nicely-cased details name.
-func parseNTS(live *ntsLive, channel string) string {
+// parseNTS returns the current show title and cover art for the given channel.
+// NTS is live DJ radio with no per-track tagging, so the show/broadcast name is
+// the best available now-playing string. Prefers the nicely-cased details name.
+func parseNTS(live *ntsLive, channel string) (title, artURL string) {
 	for _, r := range live.Results {
 		if r.Channel != channel {
 			continue
 		}
+		m := r.Now.Embeds.Details.Media
+		art := firstNonEmpty(m.PictureMediumLarge, m.PictureLarge, m.BackgroundMedLarge)
 		if name := strings.TrimSpace(r.Now.Embeds.Details.Name); name != "" {
-			return name
+			return name, art
 		}
-		return strings.TrimSpace(r.Now.BroadcastTitle)
+		return strings.TrimSpace(r.Now.BroadcastTitle), art
 	}
-	return ""
+	return "", ""
 }
 
 // --- FIP (Radio France) ----------------------------------------------------
@@ -153,36 +161,48 @@ type fipLive struct {
 	Steps map[string]struct {
 		Title   string `json:"title"`
 		Authors string `json:"authors"`
+		Visual  string `json:"visual"` // cover art URL
 		Start   int64  `json:"start"`
 		End     int64  `json:"end"`
 	} `json:"steps"`
 }
 
-func fipNowPlaying(ctx context.Context, station int, now int64) (string, error) {
+func fipNowPlaying(ctx context.Context, station int, now int64) (string, string, error) {
 	var live fipLive
 	url := fmt.Sprintf("https://api.radiofrance.fr/livemeta/pull/%d", station)
 	if err := getJSON(ctx, url, &live); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return parseFIP(&live, now), nil
+	title, art := parseFIP(&live, now)
+	return title, art, nil
 }
 
-// parseFIP returns "Artist - Title" for the step playing at now. It picks the
-// step whose [start,end) window contains now; if none does (clock skew, gaps),
-// it falls back to the most recent step that has already started.
-func parseFIP(live *fipLive, now int64) string {
+// parseFIP returns "Artist - Title" and cover art for the step playing at now.
+// It picks the step whose [start,end) window contains now; if none does (clock
+// skew, gaps), it falls back to the most recent step that has already started.
+func parseFIP(live *fipLive, now int64) (title, artURL string) {
 	var bestStart int64 = -1
-	var artist, title string
+	var artist, bestTitle, bestVisual string
 	for _, s := range live.Steps {
 		if s.Start <= now && now < s.End {
-			return formatTrack(s.Authors, s.Title)
+			return formatTrack(s.Authors, s.Title), s.Visual
 		}
 		if s.Start <= now && s.Start > bestStart {
 			bestStart = s.Start
-			artist, title = s.Authors, s.Title
+			artist, bestTitle, bestVisual = s.Authors, s.Title, s.Visual
 		}
 	}
-	return formatTrack(artist, title)
+	return formatTrack(artist, bestTitle), bestVisual
+}
+
+// firstNonEmpty returns the first non-empty string after trimming, or "".
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 // formatTrack joins artist and title as "Artist - Title", matching the ICY
