@@ -256,6 +256,8 @@ func TestTracks_MapsAllFields(t *testing.T) {
 						"year": 1959,
 						"index": 1,
 						"duration": 565000,
+						"thumb": "/library/metadata/789/thumb/111",
+						"parentThumb": "/library/metadata/456/thumb/999",
 						"Media": [{"Part": [{"key": "/library/parts/100/111/So_What.flac"}]}]
 					},
 					{
@@ -266,6 +268,7 @@ func TestTracks_MapsAllFields(t *testing.T) {
 						"year": 1959,
 						"index": 2,
 						"duration": 586000,
+						"parentThumb": "/library/metadata/456/thumb/999",
 						"Media": [{"Part": [{"key": "/library/parts/101/222/Freddie.flac"}]}]
 					}
 				]
@@ -305,6 +308,24 @@ func TestTracks_MapsAllFields(t *testing.T) {
 	}
 	if tr.PartKey != "/library/parts/100/111/So_What.flac" {
 		t.Errorf("PartKey: got %q, want /library/parts/100/111/So_What.flac", tr.PartKey)
+	}
+	if tr.Thumb != "/library/metadata/789/thumb/111" {
+		t.Errorf("Thumb: got %q, want track thumb", tr.Thumb)
+	}
+	// Second track has no thumb; it should fall back to parentThumb.
+	if tracks[1].Thumb != "/library/metadata/456/thumb/999" {
+		t.Errorf("Thumb fallback: got %q, want parentThumb", tracks[1].Thumb)
+	}
+}
+
+func TestImageURL(t *testing.T) {
+	c := NewClient("http://192.168.1.10:32400", "mytoken")
+	got := c.ImageURL("/library/metadata/789/thumb/111")
+	if !strings.Contains(got, "/library/metadata/789/thumb/111") || !strings.Contains(got, "X-Plex-Token=") {
+		t.Errorf("ImageURL = %q, want thumb path with token", got)
+	}
+	if c.ImageURL("") != "" {
+		t.Errorf("ImageURL(\"\") = %q, want empty", c.ImageURL(""))
 	}
 }
 

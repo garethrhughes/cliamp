@@ -58,6 +58,7 @@ type Track struct {
 	TrackNumber int    // index field in Plex API
 	Duration    int    // milliseconds
 	PartKey     string // relative path, e.g. "/library/parts/67890/1234567890/file.flac"
+	Thumb       string // relative cover art path, e.g. "/library/metadata/123/thumb/456"
 }
 
 // get issues an authenticated GET request and decodes the JSON response into result.
@@ -253,6 +254,16 @@ func (c *Client) StreamURL(partKey string) string {
 	return c.baseURL + partKey + "?X-Plex-Token=" + url.QueryEscape(c.token)
 }
 
+// ImageURL returns the authenticated cover art URL for a thumb path, or "" if
+// thumb is empty. thumb is the relative path from a Track's thumb/parentThumb,
+// e.g. "/library/metadata/123/thumb/456".
+func (c *Client) ImageURL(thumb string) string {
+	if thumb == "" {
+		return ""
+	}
+	return c.baseURL + thumb + "?X-Plex-Token=" + url.QueryEscape(c.token)
+}
+
 // IsStreamURL reports whether the given URL looks like a Plex library part
 // endpoint. Used by the player to route these URLs through the buffered
 // navBuffer + ffmpeg pipeline instead of native HTTP streaming.
@@ -271,8 +282,10 @@ type trackJSON struct {
 	GrandparentTitle string `json:"grandparentTitle"` // artist
 	ParentTitle      string `json:"parentTitle"`      // album
 	Year             int    `json:"year"`
-	Index            int    `json:"index"`    // track number within album
-	Duration         int    `json:"duration"` // milliseconds
+	Index            int    `json:"index"`       // track number within album
+	Duration         int    `json:"duration"`    // milliseconds
+	Thumb            string `json:"thumb"`       // track cover (album art for music)
+	ParentThumb      string `json:"parentThumb"` // album cover, fallback for thumb
 	Media            []struct {
 		Part []struct {
 			Key string `json:"key"`
@@ -285,6 +298,10 @@ func trackFromJSON(m trackJSON) Track {
 	if len(m.Media) > 0 && len(m.Media[0].Part) > 0 {
 		partKey = m.Media[0].Part[0].Key
 	}
+	thumb := m.Thumb
+	if thumb == "" {
+		thumb = m.ParentThumb
+	}
 	return Track{
 		RatingKey:   m.RatingKey,
 		Title:       m.Title,
@@ -294,5 +311,6 @@ func trackFromJSON(m trackJSON) Track {
 		TrackNumber: m.Index,
 		Duration:    m.Duration,
 		PartKey:     partKey,
+		Thumb:       thumb,
 	}
 }

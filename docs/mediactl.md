@@ -82,7 +82,7 @@ playerctl metadata title        # just the title
 
 For live radio streams that provide ICY metadata, the artist and title fields update dynamically as the station reports new track information.
 
-`mpris:artUrl` lets desktop media widgets (KDE's Media Player applet, GNOME, the lock screen, and similar) display cover art. It is populated for providers that expose artwork — currently Jellyfin, Emby, Navidrome, and Spotify — and omitted otherwise.
+`mpris:artUrl` lets desktop media widgets (KDE's Media Player applet, GNOME, the lock screen, and similar) display cover art. It is populated for providers that expose artwork — Jellyfin, Emby, Navidrome, Spotify, Plex, and YouTube Music — and for local files (embedded cover art, extracted to the cache directory, or a sibling `cover.jpg`/`folder.jpg`). It is omitted when no art is available.
 
 ### Status
 

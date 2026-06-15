@@ -61,3 +61,12 @@ func TestRefreshInvalidatesAllCaches(t *testing.T) {
 		t.Errorf("reloaded disk Tracks not cleared: %d entries", len(reloaded.Tracks))
 	}
 }
+
+func TestYouTubeThumbURL(t *testing.T) {
+	if got := youTubeThumbURL("dQw4w9WgXcQ"); got != "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" {
+		t.Errorf("youTubeThumbURL = %q", got)
+	}
+	if got := youTubeThumbURL(""); got != "" {
+		t.Errorf("youTubeThumbURL(\"\") = %q, want empty", got)
+	}
+}

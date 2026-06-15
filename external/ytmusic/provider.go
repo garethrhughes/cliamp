@@ -360,6 +360,7 @@ func (b *baseProvider) tracks(playlistID string) ([]playlist.Track, error) {
 			Path:         "https://music.youtube.com/watch?v=" + it.videoID,
 			Title:        it.title,
 			Artist:       cleanChannelName(it.channel),
+			ArtURL:       youTubeThumbURL(it.videoID),
 			Stream:       false,
 			DurationSecs: durations[it.videoID],
 		})
@@ -603,4 +604,14 @@ func parseISO8601Duration(d string) int {
 func cleanChannelName(name string) string {
 	name = strings.TrimSuffix(name, " - Topic")
 	return name
+}
+
+// youTubeThumbURL returns the cover image URL for a video ID. hqdefault is used
+// because it always exists for any video (unlike maxresdefault). The URL is
+// deterministic, so no extra API call is needed.
+func youTubeThumbURL(videoID string) string {
+	if videoID == "" {
+		return ""
+	}
+	return "https://i.ytimg.com/vi/" + videoID + "/hqdefault.jpg"
 }

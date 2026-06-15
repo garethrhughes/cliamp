@@ -155,6 +155,7 @@ func (p *Provider) convertTracks(plexTracks []Track, limit int) []playlist.Track
 			Year:         t.Year,
 			TrackNumber:  t.TrackNumber,
 			DurationSecs: t.Duration / 1000,
+			ArtURL:       p.client.ImageURL(t.Thumb),
 			Stream:       true,
 		})
 		if limit > 0 && len(tracks) >= limit {
